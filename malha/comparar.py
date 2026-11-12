@@ -26,7 +26,14 @@ def _processo_atual(pasta_dados):
         etapa1 = sim.rodar_script("network_input_to_bwt_generation.py", "x",
                                   [(r"ingestion_token =[ \t]*\n", "ingestion_token = None\n", "")])
         etapa2 = sim.rodar_script("outobund_by_soc_tt_by_routes.py", "x")
-    return {"malha": etapa1["network_output"], "rotas": etapa2["routes_output"]}
+        sim.rodar_script("outobund_by_soc_tt_by_routes_manual_express.py", "x")
+    # a etapa 3 só grava na planilha: pega a aba [T] 4.1 como ficou (cabeçalho na linha 3)
+    aba = sim.planilhas[("1HdplQWZuaSrEYQLNWQYA0gc5rCqXaLCt-aaLJ2xD3FE",
+                         "[T] 4.1 TT and SOC Packed to Transporting to SOC")]
+    largura = len(aba[2])
+    linhas = [l + [""] * (largura - len(l)) for l in aba[3:] if any(l)]
+    etapa3 = pd.DataFrame([l[:largura] for l in linhas], columns=aba[2])
+    return {"malha": etapa1["network_output"], "rotas_padrao": etapa2["routes_output"], "rotas": etapa3}
 
 
 def _diferencas(atual, nova, chave, colunas):
@@ -52,7 +59,8 @@ def comparar(pasta_dados):
     with redirect_stdout(io.StringIO()):
         nova = calcular(ler_inputs(pasta_dados))
     testes = [("Malha (etapa 1)", "malha", ["period_start", "E2E Path"], COLUNAS_MALHA),
-              ("Rotas (etapa 2)", "rotas", ["period_start", "Route"], COLUNAS_ROTAS)]
+              ("Rotas (etapa 2)", "rotas_padrao", ["period_start", "Route"], COLUNAS_ROTAS),
+              ("Rotas após ajuste manual (etapa 3)", "rotas", ["period_start", "Route"], COLUNAS_ROTAS)]
     tudo_ok = True
     for titulo, nome, chave, colunas in testes:
         erros = _diferencas(atual[nome], nova[nome], chave, colunas)

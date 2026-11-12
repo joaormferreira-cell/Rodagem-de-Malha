@@ -2,8 +2,9 @@
 import time
 from pathlib import Path
 
+from .calculo.ajuste_expressas import aplicar_ajuste, ler_lista
 from .calculo.malha import montar_malha
-from .calculo.rotas import calcular_rotas
+from .calculo.rotas import calcular_rotas, preparar_new_tt
 from .leitura import ler_api, ler_aba
 
 
@@ -19,15 +20,18 @@ def ler_inputs(pasta_dados):
         "tempos_soc": ler_aba(pasta_dados, "tempos_soc"),
         "arrived_received": ler_aba(pasta_dados, "arrived_received"),
         "air_lh": ler_aba(pasta_dados, "air_lh"),
+        "ajuste_expressas": ler_aba(pasta_dados, "ajuste_expressas"),
     }
 
 
 def calcular(entradas):
     malha = montar_malha(entradas["demanda"], entradas["distancias"],
                          entradas["estacoes_historico"], entradas["estacoes_base"])
-    rotas = calcular_rotas(malha, entradas["expressas"], entradas["new_tt"], entradas["spr"],
-                           entradas["tempos_soc"], entradas["arrived_received"], entradas["air_lh"])
-    return {"malha": malha, "rotas": rotas}
+    rotas_padrao = calcular_rotas(malha, entradas["expressas"], entradas["new_tt"], entradas["spr"],
+                                  entradas["tempos_soc"], entradas["arrived_received"], entradas["air_lh"])
+    rotas, _ = aplicar_ajuste(rotas_padrao, ler_lista(entradas.get("ajuste_expressas")),
+                              entradas["expressas"], preparar_new_tt(entradas["new_tt"]))
+    return {"malha": malha, "rotas_padrao": rotas_padrao, "rotas": rotas}
 
 
 def salvar(resultados, pasta_saida):
