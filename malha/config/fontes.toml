@@ -1,0 +1,71 @@
+# De onde vem cada input. "pasta" e "aba" dizem onde está o CSV no modo teste:
+#   <pasta de dados>/<pasta>/<aba>.csv   (o CSV é a aba inteira, baixada do Google Sheets)
+# "intervalo" é o mesmo trecho que o processo atual lê da aba.
+
+[api.demanda]
+nome = "brbi_opslgc.demanda_bwt_"
+arquivo = "demanda_bwt.csv"
+
+[api.estacoes_estado]
+nome = "brbi_opslgc.station_names_malha"
+arquivo = "station_names.csv"
+
+[planilhas.distancias]
+planilha = "1-XOdOIY0Ik4cBmyb4YdpCKKmEXQJW1iLOS8-rFjhkwQ"
+pasta = "distancias_1-XOdO"
+aba = "0.0 Distances Available"
+intervalo = "A1:I"
+
+[planilhas.estacoes_historico]
+planilha = "1j_-RWpY8l51uRoghLLfBbI10YCUM6DmbjHxJUzsaz2I"
+pasta = "estacoes_historico_1j_-RW"
+aba = "0.0 Station List Historical"
+intervalo = "A1:D"
+
+[planilhas.estacoes_base]
+planilha = "1hZSIsOUFpf5oQ7hw6bckUvq3_tZiPCCSeBOLyIstyqI"
+pasta = "estacoes_base_1hZSIs"
+aba = "Base"
+intervalo = "A2:G"
+
+[planilhas.expressas]
+planilha = "197nob2_mCQy1fA-1ETkDH8hs6EW-YYLJx1F2egxW5uQ"
+pasta = "expressas_197nob"
+aba = "Implemented routes"
+intervalo = "B4:AA500"
+
+[planilhas.new_tt]
+planilha = "1mwx37vJIDwk2eOMLZ_LTYqoTHq-3qui2zbOL9vkE6pE"
+pasta = "new_tt_1mwx37"
+aba = "ABA ROTAS"
+intervalo = "A1:Q"
+
+[planilhas.spr]
+planilha = "1VaLP441cLIrkW_Vwl6MDT_i_FLfVi2I9i-lVLePbGVQ"
+pasta = "outros_inputs_1VaLP4"
+aba = "[O] 0. Routes SPRs"
+intervalo = "A1:G"
+
+[planilhas.tempos_soc]
+planilha = "1VaLP441cLIrkW_Vwl6MDT_i_FLfVi2I9i-lVLePbGVQ"
+pasta = "outros_inputs_1VaLP4"
+aba = "[I] 1.0 SOC Unloading and Loading Time"
+intervalo = "A3:I"
+
+[planilhas.air_lh]
+planilha = "1VaLP441cLIrkW_Vwl6MDT_i_FLfVi2I9i-lVLePbGVQ"
+pasta = "outros_inputs_1VaLP4"
+aba = "[I] 2. Air Line Haul TT"
+intervalo = "A3:B"
+
+[planilhas.ajuste_expressas]
+planilha = "1HdplQWZuaSrEYQLNWQYA0gc5rCqXaLCt-aaLJ2xD3FE"
+pasta = "automations_1HdplQ"
+aba = "express_route_mngmt"
+intervalo = "A1:B"
+
+[planilhas.arrived_received]
+planilha = "1HdplQWZuaSrEYQLNWQYA0gc5rCqXaLCt-aaLJ2xD3FE"
+pasta = "automations_1HdplQ"
+aba = "[T] 4.1 SOC Arrived to Received"
+intervalo = "A3:AA"

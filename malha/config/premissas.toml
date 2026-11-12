@@ -1,0 +1,43 @@
+# Premissas de negócio da rodagem de malha.
+# Mudar um valor aqui muda o cálculo — sempre rode `python -m malha comparar` depois.
+
+[distancia]
+multiplicador_haversine = 1.4      # distância em linha reta × 1,4 quando não há distância cadastrada
+raio_terra_km = 6371.0
+
+[tempo_viagem.normal]
+km_inicio = 100                    # primeiros km (saída da cidade)
+vel_inicio_kmh = 60
+vel_estrada_kmh = 76
+descanso_longo_a_cada_h = 8        # descanso do motorista
+descanso_longo_h = 13
+descanso_curto_a_cada_h = 5
+descanso_curto_h = 1.5
+
+[tempo_viagem.expressa]
+km_inicio = 100
+vel_inicio_kmh = 60
+vel_estrada_kmh = 76
+troca_motorista_a_cada_h = 8       # na expressa troca o motorista em vez de parar 13h
+troca_motorista_h = 1
+descanso_curto_a_cada_h = 5
+descanso_curto_h = 1.5
+
+[malha]
+destinos_excluidos = ["3PL"]
+
+[rotas]
+origens_cb = ["FMH-VCP", "FMH-GIG", "FMH-GRU"]
+dist_min_expressa_km = 750
+outbound_min_h = 4
+janela_outbound_h = 12
+tt_min_h = 1
+dist_min_tt_km = 3
+fila_nao_soc_h = 2
+fracao_arredonda_cima = 0.7        # sobra acima de 70% da capacidade abre mais um veículo
+sobra_min_novo_veiculo = 1000      # sobra abaixo de 1.000 pedidos não abre veículo
+tipos_sem_fila = ["HUB-XPT", "SOC-XPT", "FBS-HUB", "FMH-HUB", "SOC-HUB"]
+tipos_com_outbound = ["SOC-SOC"]
+
+[rotas.tt_final_fixo]              # TT final fixo por rota (marcado [TEMP] no processo atual)
+"SOC-SP6>HUB-LAM-02" = 47

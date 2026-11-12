@@ -1,0 +1,67 @@
+# Como funciona a Rodagem de Malha 2.0
+
+Guia em linguagem simples, para entender e explicar a ferramenta sem ler código.
+
+## Em uma frase
+A ferramenta pega **os caminhos que os pacotes fazem** (ex.: FMH → SOC São Paulo → SOC Rio → HUB Rio), calcula **quanto tempo cada trecho leva** e, no fim, **o prazo total de entrega** (BWT).
+
+## Como rodar
+No terminal do VS Code, na pasta do projeto:
+
+| Comando | O que faz |
+|---|---|
+| `python -m malha rodar` | Calcula tudo e salva os resultados na pasta `saida/` (Excel para abrir, Parquet para volume grande) |
+| `python -m malha comparar` | Roda a ferramenta nova **e** o processo atual com os mesmos dados e diz se deu igual |
+| `python -m pytest tests -q` | Roda os testes automáticos (igualdade com o processo atual + teste com 100 mil caminhos) |
+
+Por padrão usa os dados de exemplo (`teste_local/dados_exemplo`). Para outros dados: `--dados <pasta>`.
+
+## As partes (cada uma é um arquivo, com uma função clara)
+
+```
+malha/
+  config/premissas.toml   ← TODOS os números de negócio (750 km, 4h, velocidades...). Mudou a regra? Muda aqui.
+  config/fontes.toml      ← de qual planilha e aba vem cada input
+  leitura.py              ← lê os inputs
+  calculo/
+    distancias.py         ← distância de cada trecho
+    malha.py              ← ETAPA 1: monta os caminhos
+    tempo_viagem.py       ← fórmula de tempo de viagem por km
+    rotas.py              ← ETAPA 2: veículos, espera e tempo de cada rota
+  pipeline.py             ← junta as etapas na ordem
+  comparar.py             ← confere contra o processo atual
+```
+
+## Passo a passo do cálculo
+
+### Etapa 1 — Montar a malha (`calculo/malha.py`)
+1. Recebe a demanda: cada caminho e quantos pacotes por dia passam nele (ADO).
+2. Tira caminhos com destino 3PL.
+3. Para cada trecho do caminho, acha a distância:
+   - se está **cadastrada** (planilha de distâncias), usa — vale nos dois sentidos;
+   - senão, calcula pela **linha reta entre as estações × 1,4** (as estradas não são retas);
+   - se a estação não tem localização, marca **-1** e o caminho vai para a lista de erros.
+4. Coloca cada estação na sua coluna: FMH, SOC1 a SOC4, LMH (HUB), XPT.
+
+### Etapa 2 — Calcular cada rota (`calculo/rotas.py`)
+1. **Quebra** cada caminho nos seus trechos e **soma os pacotes** de todos os caminhos que passam no mesmo trecho.
+2. **Veículos:** enche carretas; sobra pequena (< 1.000 pacotes) não abre veículo; sobra grande (> 70% de uma carreta) abre mais uma; o resto vai num truck.
+3. **Espera para sair** (só SOC → SOC): 12h ÷ número de veículos, nunca menos de 4h, + tempo de carregar.
+4. **Tempo de viagem**, nesta ordem de prioridade:
+   1. rota na planilha oficial de **expressas** (já ativa no mês) → tempo oficial;
+   2. rota na planilha **New TT** → tempo de lá;
+   3. senão, **cálculo pela distância** (velocidade + paradas do motorista).
+   Rotas de 750 km ou mais ganham o selo de expressa.
+5. **Fila no destino:** tempo para descarregar no SOC de destino. Rotas que terminam em HUB ou XPT não têm fila.
+6. **Tempo total da rota** = viagem + fila.
+
+Cada rota diz **de onde veio o tempo de viagem** (coluna `fonte_tt`): Expressa oficial, New TT, Cálculo por km, Air LH ou Valor fixo.
+
+## Como sabemos que está certo
+Toda parte nova é comparada com o processo atual, **com os mesmos dados**, coluna por coluna (`python -m malha comparar`). Só avança quando dá igual.
+
+| Parte | Resultado |
+|---|---|
+| Malha (etapa 1) | 8 de 8 caminhos iguais, 22 colunas |
+| Rotas (etapa 2) | 12 de 12 rotas iguais, 23 colunas |
+| Volume | 100 mil caminhos calculados em ~7 segundos |

@@ -1,0 +1,3 @@
+dados_reais/**/*.csv
+saida/
+__pycache__/
