@@ -5,6 +5,7 @@ from pathlib import Path
 from .calculo.ajuste_expressas import aplicar_ajuste, ler_lista
 from .calculo.bwt import calcular_bwt
 from .calculo.by_step import meta_by_step
+from .checagens import checar_inputs, checar_resultados
 from .calculo.malha import montar_malha
 from .calculo.rotas import calcular_rotas, preparar_new_tt
 from .leitura import ler_api, ler_aba
@@ -63,8 +64,16 @@ def salvar(resultados, pasta_saida):
 
 def rodar(pasta_dados, pasta_saida):
     inicio = time.perf_counter()
-    resultados = calcular(ler_inputs(pasta_dados))
-    arquivos = salvar(resultados, pasta_saida)
+    entradas = ler_inputs(pasta_dados)
+    rel = checar_inputs(entradas)
+    if rel.tem_erro():
+        rel.imprimir()
+        salvar({"checagens": rel.tabela()}, pasta_saida)
+        raise SystemExit("\nRodagem interrompida: corrija os ERROS acima (lista em saida/checagens.xlsx).")
+    resultados = calcular(entradas)
+    checar_resultados(resultados, entradas, rel)
+    rel.imprimir()
+    arquivos = salvar({**resultados, "checagens": rel.tabela()}, pasta_saida)
     print(f"\nRodagem concluída em {time.perf_counter() - inicio:.1f}s. Arquivos:")
     for a in arquivos:
         print(f"  {a}")

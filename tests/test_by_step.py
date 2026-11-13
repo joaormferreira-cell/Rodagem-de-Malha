@@ -62,3 +62,21 @@ def test_rota_macro_igual_a_by_step():
         "BR - BR", "RJ > SP", "BR>Sudeste", "BR>SP State", "BR>SP Metro", "RJ Metro>SP Metro",
         "BR>SP Capital", "RJ Capital>SP Capital"]
     assert rotas_macro("", "", "", "") == ["BR - BR", "BR>Not Metro"]
+
+
+def test_meta_x_realizado():
+    from malha.calculo.by_step import KPI
+    from malha.calculo.meta_x_real import comparar
+    mes, ch, rota = "2026-11-01", "SPX D2D", "BR - BR"
+    meta = pd.DataFrame({"attempt_month": mes, "spx_channel": ch, "main_route": rota,
+                         "kpi": [KPI["M01"], KPI["M24"]], "bwt_n": [200.0, 30.0], "bwt_d": [10.0, 10.0]})
+    real = pd.DataFrame({"attempt_month": "2026-11-01 00:00:00", "spx_channel": ch, "main_route": rota,
+                         "kpi": ["M02 Seller: Paid to Label", "M04 Seller: Label to Pickup",
+                                 "M24 SOC1: Received to Packed", "M56 SOC to Pickup Point", "Z Pedidos sem nenhum bipe"],
+                         "bwt_n": [100.0, 150.0, 40.0, 5.0, 99.0], "bwt_d": [10.0, 8.0, 10.0, 1.0, 3.0]})
+    t = comparar(meta, real).set_index("kpi")
+    assert t.loc[KPI["M01"], "real_h"] == 25.0          # (100 + 150) ÷ pedidos do M02 (10)
+    assert t.loc[KPI["M01"], "meta_h"] == 20.0
+    assert t.loc[KPI["M24"], "dif_h"] == 1.0             # 4h realizado − 3h meta
+    assert t.loc["M56 SOC to Pickup Point", "situacao"] == "fora do modelo (só realizado)"
+    assert "Z Pedidos sem nenhum bipe" not in t.index

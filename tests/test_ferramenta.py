@@ -89,3 +89,14 @@ def test_carga_volume_real():
     assert len(resultado["malha"]) == CAMINHOS_NO_TESTE_DE_CARGA
     assert len(resultado["bwt_caminhos"]) == CAMINHOS_NO_TESTE_DE_CARGA
     assert segundos < LIMITE_SEGUNDOS
+
+
+def test_checagens():
+    from malha.checagens import checar_inputs
+    from malha.pipeline import ler_inputs
+    entradas = ler_inputs(RAIZ / "teste_local" / "dados_exemplo")
+    assert not checar_inputs(entradas).tem_erro()            # dados de exemplo: sem erro
+    entradas["spr"] = entradas["spr"].assign(carreta_cap="0")   # capacidade 0 = divisão por zero
+    rel = checar_inputs(entradas).tabela()
+    linha = rel[rel["checagem"].str.startswith("carreta_cap zero")].iloc[0]
+    assert linha["nivel"] == "ERRO" and linha["qtd"] > 0
