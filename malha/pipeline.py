@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .calculo.ajuste_expressas import aplicar_ajuste, ler_lista
 from .calculo.bwt import calcular_bwt
+from .calculo.by_step import meta_by_step
 from .calculo.malha import montar_malha
 from .calculo.rotas import calcular_rotas, preparar_new_tt
 from .leitura import ler_api, ler_aba
@@ -42,7 +43,8 @@ def calcular(entradas):
                               entradas["expressas"], preparar_new_tt(entradas["new_tt"]))
     bwt = calcular_bwt(malha, rotas, entradas["metas"], entradas["estacoes_subregiao"],
                        entradas["spx_info"], entradas["estacoes_estado"])
-    return {"malha": malha, "rotas_padrao": rotas_padrao, "rotas": rotas, **bwt}
+    meta = meta_by_step(bwt["bwt_caminhos"], entradas["spx_info"])
+    return {"malha": malha, "rotas_padrao": rotas_padrao, "rotas": rotas, **bwt, "by_step_meta": meta}
 
 
 def salvar(resultados, pasta_saida):
