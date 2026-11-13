@@ -83,10 +83,12 @@ def gravar(resultados, confirmar=False):
     for aba, p in plano.items():
         linha_cab, colunas, _ = ABAS[aba]
         conn.clean_specific_range(sheet_id=planilha, sheet_name=aba,
-                                  range_to_clear=f"A{linha_cab + 1}:{_letra(len(colunas))}")
+                                  range_to_clear=f"A{linha_cab}:{_letra(len(colunas))}")
         linhas = p["linhas"]
-        for i in range(0, len(linhas), LOTE):
-            conn.print_in_sheets(scopes=planilha, sh_name=f"'{aba}'!A{linha_cab + 1 + i}",
-                                 df=linhas.iloc[i:i + LOTE], print_columns=False)
+        # o cabeçalho é regravado junto: no processo atual ele ficou fora da ordem das colunas e o
+        # Summary (que procura a coluna pelo nome do cabeçalho) lia a coluna vizinha
+        for i in range(0, max(len(linhas), 1), LOTE):
+            conn.print_in_sheets(scopes=planilha, sh_name=f"'{aba}'!A{linha_cab + (0 if i == 0 else 1 + i)}",
+                                 df=linhas.iloc[i:i + LOTE], print_columns=(i == 0))
         print(f"  {aba}: gravado ({len(linhas)} linhas)")
     return plano

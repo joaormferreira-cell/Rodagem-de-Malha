@@ -54,3 +54,14 @@ Nada foi removido. Remover só depois de entender o processo inteiro.
 - Passo 2 `:626` + `:860`: converte em número as colunas da 4ª em diante da aba Arrived to Received e faz `dropna()`. **Um SOC com qualquer mês vazio (até mês antigo) perde a própria fila** e passa a usar a média. Nos dados reais de nov/26, 11 de 26 SOCs caem nisso (ex.: SOC-ES2, SOC-SP10).
 - Passo 4: célula vazia nas abas `[T] 2.1` ou `[T] 3.1` faz o script parar (`astype(float)`).
 - Passo 4: CEP vazio na SPX_info conta como "Not SPM" só porque `zipcode` é a última coluna lida.
+
+## Defeitos da planilha de saída "2. BWT Output by step" (1iReXh…), achados em 13/nov/26
+- `raw_bwt` linha 2 (cabeçalho): ordem diferente da ordem em que o passo 4 grava os dados a partir de
+  `bwt_lh_xpt_arrived_to_xpt_received`. O Summary procura cada etapa pelo nome do cabeçalho e **lê a coluna vizinha**
+  nas etapas de HUB/XPT. Corrigido na cópia de teste regravando o cabeçalho.
+- `raw_data_1st_SOC` linha 2: cabeçalho na ordem period/spx/fbs/cb/origin/dest, dados gravados como
+  period/spx/origin/dest/fbs/cb.
+- `Summary`: fórmulas leem `raw_bwt!$I:$AO` e `$AL:$BO` (variação `$I:$AK`/`$AL:$BP` na última linha), mas os dados vão
+  até CA: etapas depois do SOC4 davam 0. Linhas "LH Arrived to LMH Transported" e "XPT Arrived to XPT Received" sem fórmula.
+  Corrigido na cópia de teste (intervalos para `$I:$CA` e fórmulas copiadas).
+- O mês (`period_start`) tem de ficar como **texto** (o Summary compara texto); gravar com RAW.
