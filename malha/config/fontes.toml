@@ -185,3 +185,10 @@ planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
 pasta = "metas_1mSxSQ"
 aba = "[T] 8. Airport Received to Flight Departure"
 intervalo = "A3:AA"
+
+# ---------- Saída (gravação na planilha) ----------
+# Vazio = não grava. Para testar, colocar o ID da CÓPIA da planilha "2. BWT Output by step".
+# Original (produção): 1iReXhzuORpc7cTBGo5C1MrvUmILYu3x_ZzjnM3fDGfw
+[saida]
+planilha = ""
+meses_network_output = ["2026-11-01"]   # meses que vão para a aba Network BWT output (as outras abas recebem todos)

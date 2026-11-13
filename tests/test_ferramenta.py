@@ -100,3 +100,17 @@ def test_checagens():
     rel = checar_inputs(entradas).tabela()
     linha = rel[rel["checagem"].str.startswith("carreta_cap zero")].iloc[0]
     assert linha["nivel"] == "ERRO" and linha["qtd"] > 0
+
+
+def test_gravacao_substitui_mes_sem_duplicar():
+    from malha.calculo.bwt import COLUNAS_1O_SOC, COLUNAS_RESUMO, COLUNAS_SAIDA
+    from malha.gravar import plano_de_gravacao
+    novo = pd.DataFrame({c: [0] * 2 for c in COLUNAS_RESUMO})
+    novo["period_start"] = ["2026-10-01", "2026-11-01"]
+    hoje = pd.DataFrame([["2026-08-01"] + [""] * (len(COLUNAS_RESUMO) - 1),      # o que já está na planilha
+                         ["2026-10-01"] + [""] * (len(COLUNAS_RESUMO) - 1)], columns=["x"] * len(COLUNAS_RESUMO))
+    resultados = {"bwt_resumo": novo, "bwt_caminhos": pd.DataFrame(columns=COLUNAS_SAIDA),
+                  "bwt_1o_soc": pd.DataFrame(columns=COLUNAS_1O_SOC)}
+    p = plano_de_gravacao(resultados, {"raw_bwt": hoje}, ["2026-11-01"])["raw_bwt"]
+    assert p["manter"] == 1                                       # agosto fica; outubro antigo sai
+    assert list(p["linhas"]["period_start"]) == ["2026-08-01", "2026-10-01", "2026-11-01"]
