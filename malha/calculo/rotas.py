@@ -135,9 +135,10 @@ def capacidades(rotas, spr):
 
 def contar_veiculos(pedidos, cap_carreta, cap_truck, p):
     """
-    Enche carretas primeiro. O que sobra:
-      - menos de 1.000 pedidos (ou zero): não abre veículo;
+    Enche carretas primeiro. O que sobra, nesta ordem:
+      - zero: nada a fazer;
       - mais de 70% de uma carreta: abre mais uma carreta;
+      - menos de 1.000 pedidos: não abre veículo;
       - senão: completa com um truck.
     Rota menor que uma carreta faz o mesmo com trucks (e completa com 'outros').
     Devolve (carretas, trucks, outros).
@@ -148,10 +149,13 @@ def contar_veiculos(pedidos, cap_carreta, cap_truck, p):
         if cap > 0 and pedidos > cap:
             cheios, sobra = divmod(pedidos, cap)
             cheios = int(cheios)
-            if sobra == 0 or sobra < p["sobra_min_novo_veiculo"]:
+            # ordem igual à do processo atual: exato → sobra > 70% → sobra < 1.000 → completa
+            if sobra == 0:
                 n, extra = cheios, 0
             elif sobra / cap > p["fracao_arredonda_cima"]:
                 n, extra = cheios + 1, 0
+            elif sobra < p["sobra_min_novo_veiculo"]:
+                n, extra = cheios, 0
             else:
                 n, extra = cheios, 1
             return (n, extra, 0) if e_carreta else (0, n, extra)
@@ -209,7 +213,11 @@ def tempo_de_viagem(rotas, expressas, new_tt, periodo, p):
 def fila_no_destino(rotas, arrived_received, periodo, p):
     """Fila para descarregar no SOC de destino (média dos SOCs se faltar); 2h fora de SOC; zero onde não há fila."""
     mes = periodo[:8] + "01"
-    tabela = arrived_received.dropna()
+    # [PARIDADE] o processo atual converte as colunas da 4ª em diante em número e descarta o SOC
+    # que tenha QUALQUER mês vazio (até mês antigo): esse SOC passa a usar a média. Ver MAPA.md.
+    tabela = arrived_received.copy()
+    tabela[tabela.columns[3:]] = tabela[tabela.columns[3:]].apply(pd.to_numeric, errors="coerce")
+    tabela = tabela.dropna()
     if mes not in tabela.columns:
         print(f"AVISO: mês {mes} não está em Arrived to Received; fila = 0")
         fila = pd.Series(0.0, index=rotas.index)

@@ -49,3 +49,8 @@ Nada foi removido. Remover só depois de entender o processo inteiro.
 - Passo 4 `:921`: novembro/2026 fixo + "próximo mês" dependente da data de execução. Passo 2 `:884`: TT fixo de 47h `[TEMP]`.
 - Origem das premissas de velocidade e descanso em `transit_time_lib.py` (sem fonte; há uma "V2" comentada).
 - `hive_lib.py`: renomes `soc4_hub` e alias `DEST` sem uso aparente.
+
+## Defeitos achados ao comparar com a ferramenta nova (reproduzidos por paridade)
+- Passo 2 `:626` + `:860`: converte em número as colunas da 4ª em diante da aba Arrived to Received e faz `dropna()`. **Um SOC com qualquer mês vazio (até mês antigo) perde a própria fila** e passa a usar a média. Nos dados reais de nov/26, 11 de 26 SOCs caem nisso (ex.: SOC-ES2, SOC-SP10).
+- Passo 4: célula vazia nas abas `[T] 2.1` ou `[T] 3.1` faz o script parar (`astype(float)`).
+- Passo 4: CEP vazio na SPX_info conta como "Not SPM" só porque `zipcode` é a última coluna lida.
