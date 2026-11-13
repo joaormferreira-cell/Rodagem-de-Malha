@@ -5,7 +5,10 @@ from pathlib import Path
 
 from .calculo.ajuste_expressas import aplicar_ajuste, ler_lista
 from .calculo.bwt import calcular_bwt
+import pandas as pd
+
 from .calculo.by_step import meta_by_step
+from .calculo.meta_x_real import comparar as comparar_meta_real
 from .checagens import checar_inputs, checar_resultados
 from .relatorio import gerar_excel
 from .calculo.malha import montar_malha
@@ -75,6 +78,10 @@ def rodar(pasta_dados, pasta_saida):
         salvar({"checagens": rel.tabela()}, pasta_saida)
         raise SystemExit(f"\nRodagem interrompida: corrija os ERROS acima (lista em {Path(pasta_saida) / 'checagens.xlsx'}).")
     resultados = calcular(entradas)
+    realizado = Path(pasta_dados) / "by_step" / "realizado.csv"
+    if realizado.exists():   # opcional: compara a meta com o realizado da By Step
+        bruto = pd.read_csv(realizado, dtype={"bwt_n": float, "bwt_d": float})
+        resultados["meta_x_realizado"] = comparar_meta_real(resultados["by_step_meta"], bruto)
     checar_resultados(resultados, entradas, rel)
     rel.imprimir()
     arquivos = salvar({**resultados, "checagens": rel.tabela()}, pasta_saida)

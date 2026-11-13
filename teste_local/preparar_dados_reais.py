@@ -58,6 +58,9 @@ def main():
         demanda.insert(1, "period_end", fim.dt.strftime("%Y-%m-%d"))
     demanda.to_csv(api / "demanda_bwt.csv", index=False)
     shutil.copyfile(ORIGEM / "station_names.csv", api / "station_names.csv")
+    if (ORIGEM / "by_step_realizado.csv").exists():   # opcional: realizado da By Step para meta × realizado
+        (DESTINO / "by_step").mkdir(exist_ok=True)
+        shutil.copyfile(ORIGEM / "by_step_realizado.csv", DESTINO / "by_step" / "realizado.csv")
 
     print(f"Pronto: {DESTINO}")
     print(f"  demanda: {len(demanda)} linhas | meses: {sorted(demanda['period_start'].unique())}")

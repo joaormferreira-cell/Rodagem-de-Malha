@@ -12,6 +12,8 @@ from .calculo.by_step import TOTAL
 
 ABAS = [
     ("Resumo", "BWT médio (horas e dias) por mês, canal e região, ponderado pelos pedidos/dia."),
+    ("Meta x Realizado", "Só se houver o realizado da By Step: meta, realizado e diferença (h) por etapa e recorte. "
+                         "dif_h > 0 = realizado acima da meta."),
     ("Meta By Step", "Meta de cada etapa no formato da By Step (Brasil, BR - BR). Comparar com o realizado."),
     ("Meta By Step (rotas)", "Mesma meta por rota macro (SPM - SPM, SP > RJ, BR>BA State...)."),
     ("BWT por caminho AAAA-MM", "Mês mais recente, uma linha por caminho: estações, pedidos/dia, BWT total e o tempo "
@@ -53,14 +55,16 @@ def gerar_excel(resultados, arquivo):
     ultimo_mes = caminhos["period_start"].max()
     caminhos[COLUNAS_BWT].to_csv(arquivo.with_name("BWT por caminho - todos os meses.csv"), index=False,
                                  encoding="utf-8-sig", sep=";", decimal=",")
-    abas = {
-        "Resumo": _resumo(caminhos),
+    abas = {"Resumo": _resumo(caminhos)}
+    if "meta_x_realizado" in resultados:
+        abas["Meta x Realizado"] = resultados["meta_x_realizado"]
+    abas.update({
         "Meta By Step": _by_step_brasil(resultados["by_step_meta"]),
         "Meta By Step (rotas)": resultados["by_step_meta"],
         f"BWT por caminho {ultimo_mes[:7]}": caminhos.loc[caminhos["period_start"] == ultimo_mes, COLUNAS_BWT],
         "Rotas": resultados["rotas"],
         "Checagens": resultados.get("checagens", pd.DataFrame()),
-    }
+    })
     ado = caminhos["ADO"].sum()
     leia_me = [
         ["Rodagem de Malha: target de BWT por caminho"],
