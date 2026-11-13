@@ -74,17 +74,40 @@ COLUNAS_1O_SOC = GRUPO_1O_SOC + ["ADO", "BWTxADO_1st_SOC"]
 
 
 # ---------------- Ajudantes ----------------
+def _valor_como_planilha(v):
+    if v is None:
+        return ""
+    if isinstance(v, (bool, np.bool_)):
+        return "TRUE" if v else "FALSE"
+    if isinstance(v, float):
+        return "" if v != v else (str(int(v)) if v.is_integer() else repr(v))
+    return str(v)
+
+
+def _coluna_como_planilha(col):
+    """Mesma regra de _valor_como_planilha, mas a coluna inteira de uma vez quando o tipo permite."""
+    if pd.api.types.is_bool_dtype(col):
+        return col.map({True: "TRUE", False: "FALSE"}).astype(object)
+    if pd.api.types.is_float_dtype(col):
+        v = col.to_numpy(dtype=float)
+        saida = np.full(len(v), "", dtype=object)
+        inteiro = np.isfinite(v) & (v == np.floor(v))
+        quebrado = np.isfinite(v) & ~inteiro
+        saida[inteiro] = [str(int(x)) for x in v[inteiro].tolist()]
+        saida[quebrado] = [repr(x) for x in v[quebrado].tolist()]
+        return pd.Series(saida, index=col.index)
+    if pd.api.types.is_integer_dtype(col):
+        return col.astype(str).astype(object)
+    if pd.api.types.is_datetime64_any_dtype(col):
+        return col.dt.strftime("%Y-%m-%d %H:%M:%S").fillna("").astype(object)
+    if pd.api.types.infer_dtype(col, skipna=True) in ("string", "empty"):
+        return col.astype(object).where(col.notna(), "")
+    return col.map(_valor_como_planilha)
+
+
 def como_planilha(df):
     """Valores como ficam depois de gravados no Hive/Sheets e lidos de volta (tudo texto; vazio = '')."""
-    def _v(v):
-        if v is None:
-            return ""
-        if isinstance(v, (bool, np.bool_)):
-            return "TRUE" if v else "FALSE"
-        if isinstance(v, float):
-            return "" if v != v else (str(int(v)) if v.is_integer() else repr(v))
-        return str(v)
-    return df.apply(lambda col: col.map(_v))
+    return df.apply(_coluna_como_planilha)
 
 
 def _num(s):
@@ -104,7 +127,8 @@ def _sem_x(s):
 
 
 def _tipo(s):
-    return s.str.split("-").str[0]
+    """Texto antes do 1º '-' (ex.: 'Airport-GRU' → 'Airport')."""
+    return s.str.partition("-")[0]
 
 
 def _por_codigo(meta, coluna):

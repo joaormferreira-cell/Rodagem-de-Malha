@@ -40,6 +40,19 @@ def ler_aba(pasta_dados, nome):
         raise FileNotFoundError(
             f"Falta o input '{nome}': {arquivo}\n"
             f"  Baixe a aba '{cfg['aba']}' de https://docs.google.com/spreadsheets/d/{cfg['planilha']} como CSV.")
+    # arquivo grande (ex.: distâncias, 72 MB): guarda uma cópia rápida (Parquet) e reaproveita
+    # enquanto o CSV não mudar
+    cache = arquivo.with_name(f"{arquivo.stem}.{cfg['intervalo'].replace(':', '-')}.cache.parquet")
+    grande = arquivo.stat().st_size > 5_000_000
+    if grande and cache.exists() and cache.stat().st_mtime >= arquivo.stat().st_mtime:
+        return pd.read_parquet(cache)
+    df = _ler_intervalo(arquivo, cfg)
+    if grande:
+        df.to_parquet(cache, index=False)
+    return df
+
+
+def _ler_intervalo(arquivo, cfg):
     grade = _grade(arquivo)
     m = _INTERVALO.match(cfg["intervalo"])
     c1, l1, c2 = _coluna(m.group(1)), int(m.group(2)), _coluna(m.group(3))

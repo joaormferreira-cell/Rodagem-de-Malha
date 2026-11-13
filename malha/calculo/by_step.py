@@ -133,7 +133,7 @@ def _tipo(s):
     return np.where(s.str.startswith("Airport"), "Airport", np.where(s == "", "", "SOC"))
 
 
-def caminho_etapa(caminhos):
+def caminho_etapa(caminhos, com_caminho=True):
     """
     Caminho × KPI: uma linha por passagem (ex.: cada viagem entre SOCs é uma passagem).
     Colunas: period_start, E2E Path, canal, kpi, passagem, horas, ADO.
@@ -151,56 +151,67 @@ def caminho_etapa(caminhos):
     for s in SOCS:
         ultimo = np.where(tipos[s] != "", tipos[s], ultimo)
 
-    pecas = []
+    n_linhas = len(c)
+    horas_l, kpi_l = [], []
 
-    def add(componentes, kpi, passagem):
-        horas = sum(pd.to_numeric(c[x], errors="coerce").fillna(0.0).to_numpy() for x in componentes)
-        kpi = np.broadcast_to(np.asarray(kpi, dtype=object), (len(c),))
-        pecas.append(pd.DataFrame({"period_start": c["period_start"].to_numpy(), "E2E Path": c["E2E Path"].to_numpy(),
-                                   "canal": c["canal"].to_numpy(), "kpi": kpi, "passagem": passagem,
-                                   "horas": horas, "ADO": c["ADO"].to_numpy()}))
+    def horas(*componentes):
+        return sum(pd.to_numeric(c[x], errors="coerce").fillna(0.0).to_numpy() for x in componentes)
 
-    add(["bwt_apt_paid_to_dropoff"], KPI["M01"], "seller")
-    add(["bwt_dropoff_to_pickup"], KPI["M07"], "fm")
-    add(["bwt_pickup_to_received"], np.where(tem_fmh, KPI["M10"],
-                                             np.where(c["SOC1"].fillna("") != "", KPI["M09"], KPI["M11"])), "coleta")
-    add(["bwt_fbs_processing"], KPI["M05+M06"], "fbs")
-    add(["bwt_fmh_received_to_packed"], KPI["M18"], "fmh")
-    add(["bwt_fmh_packed_to_transporting"], KPI["M19"], "fmh_saida")
+    def add(h, kpi):
+        """Uma passagem por caminho: h = horas (array), kpi = nome (único ou array)."""
+        horas_l.append(h)
+        kpi_l.append(np.broadcast_to(np.asarray(kpi, dtype=object), (n_linhas,)))
+
+    add(horas("bwt_apt_paid_to_dropoff"), KPI["M01"])
+    add(horas("bwt_dropoff_to_pickup"), KPI["M07"])
+    add(horas("bwt_pickup_to_received"),
+        np.where(tem_fmh, KPI["M10"], np.where(c["SOC1"].fillna("") != "", KPI["M09"], KPI["M11"])))
+    add(horas("bwt_fbs_processing"), KPI["M05+M06"])
+    add(horas("bwt_fmh_received_to_packed"), KPI["M18"])
+    add(horas("bwt_fmh_packed_to_transporting"), KPI["M19"])
     t1 = tipos["SOC1"]
-    add(["bwt_lh_fmh_to_soc"], np.where(t1 == "Airport", KPI["M99a"], KPI["M20"]), "lh_origem")
-    add(["bwt_lh_fbs_to_soc"], np.where(t1 == "Airport", KPI["M17"], KPI["M13"]), "lh_origem")
-    add(["bwt_lh_fmh_to_lmh_arrived"], KPI["M21"], "lh_origem")
-    add(["bwt_lh_fbs_to_lmh_arrived"], KPI["M15"], "lh_origem")
+    add(horas("bwt_lh_fmh_to_soc"), np.where(t1 == "Airport", KPI["M99a"], KPI["M20"]))
+    add(horas("bwt_lh_fbs_to_soc"), np.where(t1 == "Airport", KPI["M17"], KPI["M13"]))
+    add(horas("bwt_lh_fmh_to_lmh_arrived"), KPI["M21"])
+    add(horas("bwt_lh_fbs_to_lmh_arrived"), KPI["M15"])
 
     for i, s in enumerate(SOCS, start=1):
         n = s.lower()
         aero = tipos[s] == "Airport"
-        rec = np.select([aero, ordem[s] == 1, ordem[s] == 2], [KPI["M36"], KPI["M24"], KPI["M27"]], KPI["M30"])
-        emb = np.select([aero, ordem[s] == 1, ordem[s] == 2], [KPI["M36"], KPI["M25"], KPI["M28"]], KPI["M31"])
-        add([f"bwt_{n}_received_to_packed"], rec, f"{s}_recebido")
-        add([f"bwt_{n}_packed_to_transporting"], emb, np.where(aero, f"{s}_recebido", f"{s}_saida"))
+        rec_h, emb_h = horas(f"bwt_{n}_received_to_packed"), horas(f"bwt_{n}_packed_to_transporting")
+        # aeroporto: recebido→embalado + embalado→saída são uma passagem só (M36)
+        add(np.where(aero, rec_h + emb_h, rec_h),
+            np.select([aero, ordem[s] == 1, ordem[s] == 2], [KPI["M36"], KPI["M24"], KPI["M27"]], KPI["M30"]))
+        add(np.where(aero, 0.0, emb_h), np.select([ordem[s] == 1, ordem[s] == 2], [KPI["M25"], KPI["M28"]], KPI["M31"]))
         if i < 4:
             prox = SOCS[i]
             a, b = tipos[s], tipos[prox]
             lh = np.select([(a == "SOC") & (b == "SOC") & (ordem[s] == 1), (a == "SOC") & (b == "SOC"),
                             (a == "SOC") & (b == "Airport"), (a == "Airport") & (b == "SOC")],
                            [KPI["M26"], KPI["M29"], KPI["M35"], KPI["M38"]], KPI["M37"])
-            add([f"bwt_lh_{n}_to_{prox.lower()}"], lh, f"lh_{s}")
-    add(["bwt_lh_soc_to_lmh"], np.where(ultimo == "Airport", KPI["M39"], KPI["M32"]), "lh_hub")
-    add(["bwt_lh_soc_to_xpt_arrived"], np.where(ultimo == "Airport", KPI["M40"], KPI["M33"]), "lh_xpt")
-    add(["bwt_lh_arrived_to_transported", "bwt_lh_transported_to_lmh_received"], KPI["M41"], "hub_chegada")
-    add(["bwt_lmh_received_to_LH_xpt_or_delivering"], KPI["M42"], "hub_saida")
-    add(["bwt_lmh_transporting_to_xpt_arrived"], KPI["M43"], "lh_hub_xpt")
-    add(["bwt_lh_xpt_arrived_to_xpt_received"], KPI["M48"], "xpt_chegada")
-    add(["bwt_lh_lmh_transported_to_xpt_to_delivering"], KPI["M49"], "xpt_saida")
-    add(["bwt_hub_delivering_to_1st_attempt"], KPI["M62"], "entrega")
-    add(["bwt_xpt_delivering_to_1st_attempt"], KPI["M63"], "entrega")
+            add(horas(f"bwt_lh_{n}_to_{prox.lower()}"), lh)
+    add(horas("bwt_lh_soc_to_lmh"), np.where(ultimo == "Airport", KPI["M39"], KPI["M32"]))
+    add(horas("bwt_lh_soc_to_xpt_arrived"), np.where(ultimo == "Airport", KPI["M40"], KPI["M33"]))
+    add(horas("bwt_lh_arrived_to_transported", "bwt_lh_transported_to_lmh_received"), KPI["M41"])
+    add(horas("bwt_lmh_received_to_LH_xpt_or_delivering"), KPI["M42"])
+    add(horas("bwt_lmh_transporting_to_xpt_arrived"), KPI["M43"])
+    add(horas("bwt_lh_xpt_arrived_to_xpt_received"), KPI["M48"])
+    add(horas("bwt_lh_lmh_transported_to_xpt_to_delivering"), KPI["M49"])
+    add(horas("bwt_hub_delivering_to_1st_attempt"), KPI["M62"])
+    add(horas("bwt_xpt_delivering_to_1st_attempt"), KPI["M63"])
 
-    longa = pd.concat(pecas, ignore_index=True)
-    longa = longa.groupby(["period_start", "E2E Path", "canal", "kpi", "passagem"], as_index=False, sort=False) \
-                 .agg(horas=("horas", "sum"), ADO=("ADO", "first"))
-    return longa[longa["horas"] > 0].reset_index(drop=True)
+    todas_h = np.concatenate(horas_l)
+    passou = todas_h > 0                         # só conta quem passou pela etapa
+    linha = np.tile(np.arange(n_linhas), len(horas_l))[passou]
+    longa = pd.DataFrame({"linha": linha,
+                          "period_start": pd.Categorical(c["period_start"].to_numpy()[linha]),
+                          "canal": pd.Categorical(c["canal"].to_numpy()[linha]),
+                          "kpi": pd.Categorical(np.concatenate(kpi_l)[passou]),
+                          "horas": todas_h[passou],
+                          "ADO": c["ADO"].to_numpy()[linha]})
+    if com_caminho:   # texto do caminho em milhões de linhas é caro; só quando for pedido
+        longa.insert(2, "E2E Path", pd.Categorical(c["E2E Path"].to_numpy())[linha])
+    return longa
 
 
 def meta_by_step(caminhos, spx_info):
@@ -211,21 +222,36 @@ def meta_by_step(caminhos, spx_info):
     o = c["ORIGIN"].fillna("").str.replace("(XD)", "", regex=False).map(lambda x: geo.get(x, ("", "")))
     d = c["DESTINATION"].fillna("").str.replace("(XD)", "", regex=False).map(lambda x: geo.get(x, ("", "")))
     pares = pd.Series(list(zip(o, d)), index=c.index)
-    c["rotas"] = pares.map({p: tuple(rotas_macro(p[0][0], p[0][1], p[1][0], p[1][1])) for p in set(pares)})
+    # cada par origem→destino vira um "grupo de rotas macro" (número), para agrupar rápido
+    grupo, pares_unicos = pd.factorize(pares)
+    rotas_do_grupo = pd.Series([tuple(rotas_macro(p[0][0], p[0][1], p[1][0], p[1][1])) for p in pares_unicos])
+    c["grupo"] = grupo
     sem_geo = (o.map(lambda x: x == ("", "")) | d.map(lambda x: x == ("", ""))).sum()
     if sem_geo:
         print(f"By Step: {sem_geo} caminho(s) com estação de origem/destino fora da SPX_info (só entram em BR - BR)")
 
-    longa = caminho_etapa(c)
+    c = c.reset_index(drop=True)
+    longa = caminho_etapa(c, com_caminho=False)
     longa["bwt_n"] = longa["horas"] * longa["ADO"]
-    longa = longa.merge(c[["period_start", "E2E Path", "rotas"]], on=["period_start", "E2E Path"], how="left")
-    por_kpi = longa.groupby(["period_start", "canal", "rotas", "kpi"], as_index=False) \
+    longa["grupo"] = c["grupo"].to_numpy()[longa["linha"].to_numpy()]
+    por_kpi = longa.groupby(["period_start", "canal", "grupo", "kpi"], as_index=False, observed=True) \
                    .agg(bwt_n=("bwt_n", "sum"), bwt_d=("ADO", "sum"))
+    for col in ["period_start", "canal", "kpi"]:
+        por_kpi[col] = por_kpi[col].astype(str)
     total = c.assign(bwt_n=c["bwt_total_hours"] * c["ADO"], kpi=TOTAL) \
-             .groupby(["period_start", "canal", "rotas", "kpi"], as_index=False).agg(bwt_n=("bwt_n", "sum"),
+             .groupby(["period_start", "canal", "grupo", "kpi"], as_index=False).agg(bwt_n=("bwt_n", "sum"),
                                                                                      bwt_d=("ADO", "sum"))
-    tudo = pd.concat([por_kpi, total], ignore_index=True).explode("rotas").rename(columns={"rotas": "main_route"})
-    saida = tudo.groupby(["period_start", "canal", "main_route", "kpi"], as_index=False)[["bwt_n", "bwt_d"]].sum()
+    tudo = pd.concat([por_kpi, total], ignore_index=True)
+    # cada grupo entra em todas as suas rotas macro (BR - BR, SP > RJ, BR>RJ State...)
+    mapa = rotas_do_grupo.explode().rename("main_route").rename_axis("grupo").reset_index()
+    mapa["main_route"] = mapa["main_route"].astype("category")
+    for col in ["period_start", "canal", "kpi"]:
+        tudo[col] = tudo[col].astype("category")
+    tudo = tudo.merge(mapa, on="grupo")
+    saida = tudo.groupby(["period_start", "canal", "main_route", "kpi"], as_index=False,
+                         observed=True)[["bwt_n", "bwt_d"]].sum()
+    for col in ["period_start", "canal", "main_route", "kpi"]:
+        saida[col] = saida[col].astype(str)
     saida = saida.rename(columns={"period_start": "attempt_month", "canal": "spx_channel"})
     saida["media_h"] = saida["bwt_n"] / saida["bwt_d"]
     return saida.sort_values(["attempt_month", "spx_channel", "main_route", "kpi"]).reset_index(drop=True)

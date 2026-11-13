@@ -1,11 +1,13 @@
 """Rodagem completa: lê os inputs → monta a malha → calcula as rotas → salva os resultados."""
 import time
+from datetime import datetime
 from pathlib import Path
 
 from .calculo.ajuste_expressas import aplicar_ajuste, ler_lista
 from .calculo.bwt import calcular_bwt
 from .calculo.by_step import meta_by_step
 from .checagens import checar_inputs, checar_resultados
+from .relatorio import gerar_excel
 from .calculo.malha import montar_malha
 from .calculo.rotas import calcular_rotas, preparar_new_tt
 from .leitura import ler_api, ler_aba
@@ -49,16 +51,18 @@ def calcular(entradas):
 
 
 def salvar(resultados, pasta_saida):
-    """Parquet (completo, para volume) + Excel (para abrir e conferir)."""
+    """Parquet de cada tabela (completo, para sistemas) + um Excel único para pessoas."""
     pasta = Path(pasta_saida)
     pasta.mkdir(parents=True, exist_ok=True)
     arquivos = []
     for nome, tabela in resultados.items():
         tabela.astype(str).to_parquet(pasta / f"{nome}.parquet", index=False)
         arquivos.append(pasta / f"{nome}.parquet")
-        if len(tabela) <= 1_000_000:
-            tabela.to_excel(pasta / f"{nome}.xlsx", index=False)
-            arquivos.append(pasta / f"{nome}.xlsx")
+    if "bwt_caminhos" in resultados:
+        arquivos.append(gerar_excel(resultados, pasta / f"Rodagem de Malha {datetime.now():%Y-%m-%d}.xlsx"))
+    else:   # rodagem interrompida: só as checagens
+        resultados["checagens"].to_excel(pasta / "checagens.xlsx", index=False)
+        arquivos.append(pasta / "checagens.xlsx")
     return arquivos
 
 
@@ -69,7 +73,7 @@ def rodar(pasta_dados, pasta_saida):
     if rel.tem_erro():
         rel.imprimir()
         salvar({"checagens": rel.tabela()}, pasta_saida)
-        raise SystemExit("\nRodagem interrompida: corrija os ERROS acima (lista em saida/checagens.xlsx).")
+        raise SystemExit(f"\nRodagem interrompida: corrija os ERROS acima (lista em {Path(pasta_saida) / 'checagens.xlsx'}).")
     resultados = calcular(entradas)
     checar_resultados(resultados, entradas, rel)
     rel.imprimir()
