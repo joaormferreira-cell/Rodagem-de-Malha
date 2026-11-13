@@ -16,8 +16,8 @@ ABAS = [
                          "dif_h > 0 = realizado acima da meta."),
     ("Meta By Step", "Meta de cada etapa no formato da By Step (Brasil, BR - BR). Comparar com o realizado."),
     ("Meta By Step (rotas)", "Mesma meta por rota macro (SPM - SPM, SP > RJ, BR>BA State...)."),
-    ("BWT por caminho AAAA-MM", "Mês mais recente, uma linha por caminho: estações, pedidos/dia, BWT total e o tempo "
-                                "de cada etapa (horas). Todos os meses: arquivo 'BWT por caminho - todos os meses.csv'."),
+    ("(arquivo CSV ao lado)", "'BWT por caminho - todos os meses.csv': uma linha por caminho com estações, pedidos/dia, "
+                              "BWT total e o tempo de cada etapa (horas). Abre no Excel (separador ';')."),
     ("Rotas", "Uma linha por rota: veículos, espera para sair, viagem, fila e de onde veio o tempo (fonte_tt)."),
     ("Checagens", "Conferências dos inputs e dos resultados. ERRO para a rodagem; AVISO é ponto de atenção."),
 ]
@@ -50,9 +50,8 @@ def _by_step_brasil(meta):
 
 
 def gerar_excel(resultados, arquivo):
-    """Excel leve: o detalhe por caminho só do mês mais recente (todos os meses ficam no CSV ao lado)."""
+    """Excel leve, só com resumos; o detalhe por caminho (centenas de milhares de linhas) vai num CSV ao lado."""
     caminhos = resultados["bwt_caminhos"]
-    ultimo_mes = caminhos["period_start"].max()
     caminhos[COLUNAS_BWT].to_csv(arquivo.with_name("BWT por caminho - todos os meses.csv"), index=False,
                                  encoding="utf-8-sig", sep=";", decimal=",")
     abas = {"Resumo": _resumo(caminhos)}
@@ -61,7 +60,6 @@ def gerar_excel(resultados, arquivo):
     abas.update({
         "Meta By Step": _by_step_brasil(resultados["by_step_meta"]),
         "Meta By Step (rotas)": resultados["by_step_meta"],
-        f"BWT por caminho {ultimo_mes[:7]}": caminhos.loc[caminhos["period_start"] == ultimo_mes, COLUNAS_BWT],
         "Rotas": resultados["rotas"],
         "Checagens": resultados.get("checagens", pd.DataFrame()),
     })
