@@ -41,3 +41,7 @@ tipos_com_outbound = ["SOC-SOC"]
 
 [rotas.tt_final_fixo]              # TT final fixo por rota (marcado [TEMP] no processo atual)
 "SOC-SP6>HUB-LAM-02" = 47
+
+[bwt]
+fmh_fora_da_media = "FMH-PHP"       # não entra na média das metas de FMH
+regioes_spm = ["SAO"]                # SubRegion da aba Base que conta como SP Metropolitana

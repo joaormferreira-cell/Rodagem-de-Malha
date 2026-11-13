@@ -4,3 +4,4 @@ token.json
 __pycache__/
 saida/
 .pytest_cache/
+dados_reais/

@@ -57,6 +57,17 @@ malha/
 
 Cada rota diz **de onde veio o tempo de viagem** (coluna `fonte_tt`): Expressa oficial, New TT, Cálculo por km, Air LH ou Valor fixo.
 
+### Etapa 3 — Ajuste manual de expressas (`calculo/ajuste_expressas.py`)
+A lista `express_route_mngmt` diz quais rotas o time quer (ou não) como expressa. Só essas rotas mudam: troca o selo e recalcula o tempo de viagem. O resto fica igual.
+
+### Etapa 4 — BWT por caminho (`calculo/bwt.py`)
+Soma o tempo de **cada etapa do pacote**, do pagamento até a 1ª tentativa de entrega (35 etapas, lista completa em `COMPONENTES` no arquivo). Cada etapa vem de:
+- **meta da estação** (abas [T] da planilha de metas) — estação sem meta usa a **média** do mês;
+- **tempo da rota** (TTFinal das etapas 2 e 3) — para as viagens;
+- etapa que o caminho não tem (ex.: não passa por SOC2) **vale 0**.
+
+Saídas: BWT por caminho (`bwt_caminhos`), resumo por grupo × pacotes (`bwt_resumo` = aba raw_bwt) e até o 1º SOC (`bwt_1o_soc` = raw_data_1st_SOC).
+
 ## Como sabemos que está certo
 Toda parte nova é comparada com o processo atual, **com os mesmos dados**, coluna por coluna (`python -m malha comparar`). Só avança quando dá igual.
 
@@ -64,4 +75,13 @@ Toda parte nova é comparada com o processo atual, **com os mesmos dados**, colu
 |---|---|
 | Malha (etapa 1) | 8 de 8 caminhos iguais, 22 colunas |
 | Rotas (etapa 2) | 12 de 12 rotas iguais, 23 colunas |
-| Volume | 100 mil caminhos calculados em ~7 segundos |
+| Ajuste de expressas (etapa 3) | 12 de 12 rotas iguais, 23 colunas |
+| BWT (etapa 4) | iguais nos dados de exemplo **e** em ~5.900 caminhos sorteados com todos os casos (aeroporto, cross-dock, FBS, XPT, sem HUB, 4 SOCs) |
+| Volume | 100 mil caminhos, etapas 1 a 4, em ~14 segundos |
+
+## Dados reais
+1. Coloque em `dados_reais/`: `Inputs Rodagem.xlsx`, `0.0 Distances Available.csv`, `demanda_bwt.csv`, `station_names.csv`.
+2. `python teste_local/preparar_dados_reais.py` → monta `dados_reais/pronto/`.
+3. `python -m malha comparar --dados dados_reais/pronto`.
+
+`dados_reais/` não vai para o GitHub (dados da empresa).

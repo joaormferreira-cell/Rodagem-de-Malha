@@ -58,7 +58,25 @@ def _inputs_sinteticos(n, semente=42):
         "tempos_soc": pd.DataFrame({"Sites": ["SOC-X00", "Other"], "Loading": ["2", "1"]}),
         "arrived_received": pd.DataFrame({"code": ["SOC-X00"], "nome": ["x"], "reg": ["x"], "2026-11-01": ["3"]}),
         "air_lh": vazio(["Route", "TT (hours)"]),
+        "metas": _metas_sinteticas(rng, estacoes),
+        "estacoes_subregiao": pd.DataFrame({"Code": estacoes["FMH"][:50], "SubRegion": "SAO"}),
+        "spx_info": pd.DataFrame({"station_code": estacoes["HUB"][:50], "zipcode": "01001000"}),
+        "estacoes_estado": pd.DataFrame({"station_code": estacoes["XPT"], "state_name": "Bahia", "status": "1"}),
     }
+
+
+def _metas_sinteticas(rng, estacoes):
+    mes = "2026-11-01"
+    por_codigo = lambda tipo: pd.DataFrame({"code": estacoes[tipo],  # noqa: E731
+                                            mes: rng.uniform(1, 20, len(estacoes[tipo])).round(2).astype(str)})
+    unico = pd.DataFrame({mes: ["20"]})
+    fmh = pd.DataFrame({"code": estacoes["FMH"], "period_start": mes, "Target Received to Transporting": "3"})
+    return {"meta_1_0": unico, "meta_2_0": unico, "meta_2_1": por_codigo("FMH"), "meta_3_0_1": fmh,
+            "meta_3_0_2": fmh, "meta_3_1": pd.DataFrame({"code": ["FBS-X"], mes: ["5"]}),
+            "meta_4_0": por_codigo("SOC"), "meta_4_2": por_codigo("SOC"), "meta_4_9": por_codigo("HUB"),
+            "meta_5_0": por_codigo("HUB"), "meta_5_1_0": por_codigo("HUB"), "meta_5_1_1": por_codigo("HUB"),
+            "meta_5_9": por_codigo("XPT"), "meta_6_0": por_codigo("XPT"), "meta_7_0": por_codigo("HUB"),
+            "meta_7_1": por_codigo("XPT"), "meta_8": pd.DataFrame({"code": ["Airport-GRU"], mes: ["6"]})}
 
 
 def test_carga_volume_real():
@@ -69,4 +87,5 @@ def test_carga_volume_real():
     segundos = time.perf_counter() - inicio
     print(f"\n{CAMINHOS_NO_TESTE_DE_CARGA:,} caminhos -> {len(resultado['rotas']):,} rotas em {segundos:.1f}s")
     assert len(resultado["malha"]) == CAMINHOS_NO_TESTE_DE_CARGA
+    assert len(resultado["bwt_caminhos"]) == CAMINHOS_NO_TESTE_DE_CARGA
     assert segundos < LIMITE_SEGUNDOS

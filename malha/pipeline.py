@@ -3,13 +3,22 @@ import time
 from pathlib import Path
 
 from .calculo.ajuste_expressas import aplicar_ajuste, ler_lista
+from .calculo.bwt import calcular_bwt
 from .calculo.malha import montar_malha
 from .calculo.rotas import calcular_rotas, preparar_new_tt
 from .leitura import ler_api, ler_aba
 
 
+METAS = ["meta_1_0", "meta_2_0", "meta_2_1", "meta_3_0_1", "meta_3_0_2", "meta_3_1", "meta_4_0", "meta_4_2",
+         "meta_4_9", "meta_5_0", "meta_5_1_0", "meta_5_1_1", "meta_5_9", "meta_6_0", "meta_7_0", "meta_7_1", "meta_8"]
+
+
 def ler_inputs(pasta_dados):
     return {
+        "metas": {m: ler_aba(pasta_dados, m) for m in METAS},
+        "estacoes_subregiao": ler_aba(pasta_dados, "estacoes_subregiao"),
+        "spx_info": ler_aba(pasta_dados, "spx_info"),
+        "estacoes_estado": ler_api(pasta_dados, "estacoes_estado"),
         "demanda": ler_api(pasta_dados, "demanda"),
         "distancias": ler_aba(pasta_dados, "distancias"),
         "estacoes_historico": ler_aba(pasta_dados, "estacoes_historico"),
@@ -31,7 +40,9 @@ def calcular(entradas):
                                   entradas["tempos_soc"], entradas["arrived_received"], entradas["air_lh"])
     rotas, _ = aplicar_ajuste(rotas_padrao, ler_lista(entradas.get("ajuste_expressas")),
                               entradas["expressas"], preparar_new_tt(entradas["new_tt"]))
-    return {"malha": malha, "rotas_padrao": rotas_padrao, "rotas": rotas}
+    bwt = calcular_bwt(malha, rotas, entradas["metas"], entradas["estacoes_subregiao"],
+                       entradas["spx_info"], entradas["estacoes_estado"])
+    return {"malha": malha, "rotas_padrao": rotas_padrao, "rotas": rotas, **bwt}
 
 
 def salvar(resultados, pasta_saida):

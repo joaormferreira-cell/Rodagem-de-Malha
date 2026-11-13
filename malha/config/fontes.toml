@@ -69,3 +69,119 @@ planilha = "1HdplQWZuaSrEYQLNWQYA0gc5rCqXaLCt-aaLJ2xD3FE"
 pasta = "automations_1HdplQ"
 aba = "[T] 4.1 SOC Arrived to Received"
 intervalo = "A3:AA"
+
+# ---------- Etapa 4 (BWT): estações ----------
+[planilhas.estacoes_subregiao]
+planilha = "1hZSIsOUFpf5oQ7hw6bckUvq3_tZiPCCSeBOLyIstyqI"
+pasta = "estacoes_base_1hZSIs"
+aba = "Base"
+intervalo = "A2:B"
+
+[planilhas.spx_info]
+planilha = "1hZSIsOUFpf5oQ7hw6bckUvq3_tZiPCCSeBOLyIstyqI"
+pasta = "estacoes_base_1hZSIs"
+aba = "SPX_info"
+intervalo = "A1:I"
+
+# ---------- Etapa 4 (BWT): metas por etapa (planilha de metas 1mSxSQ) ----------
+[planilhas.meta_1_0]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 1.0 APT (Paid to Pickup or dropoff)"
+intervalo = "D3:AA"
+
+[planilhas.meta_2_0]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 2.0 FM Dropoff to Pickup"
+intervalo = "D3:AA"
+
+[planilhas.meta_2_1]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 2.1 FM Pickup to SOC_FMH Received"
+intervalo = "A3:AA"
+
+[planilhas.meta_3_0_1]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 3.0.1 FMH Received to Packed"
+intervalo = "A3:E"
+
+[planilhas.meta_3_0_2]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 3.0.2 FMH Packed to Transporting"
+intervalo = "A3:E"
+
+[planilhas.meta_3_1]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 3.1 FBS Processing"
+intervalo = "A3:AA"
+
+[planilhas.meta_4_0]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 4.0 SOC Received to Packed"
+intervalo = "A3:AA"
+
+[planilhas.meta_4_2]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 4.2 SOC Packed to LH Transporting"
+intervalo = "A3:AA"
+
+[planilhas.meta_4_9]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 4.9 LMH LH Arrived to Transported"
+intervalo = "A3:AA"
+
+[planilhas.meta_5_0]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 5.0 LMH LH Transported to Received"
+intervalo = "A3:AA"
+
+[planilhas.meta_5_1_0]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 5.1.0 LMH Received to Delivering"
+intervalo = "A3:AA"
+
+[planilhas.meta_5_1_1]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 5.1.1 LMH Received to LH transporting to XPT"
+intervalo = "A3:AA"
+
+[planilhas.meta_5_9]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 5.9 XPT LH Arrived to XPT Received"
+intervalo = "A3:AA"
+
+[planilhas.meta_6_0]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 6.0 XPT Received to Delivering"
+intervalo = "A3:AA"
+
+[planilhas.meta_7_0]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 7.0 LMH Delivering to 1st"
+intervalo = "A3:AA"
+
+[planilhas.meta_7_1]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 7.1 XPT Delivering to 1st"
+intervalo = "A3:AA"
+
+[planilhas.meta_8]
+planilha = "1mSxSQkhZdQWIkQmDpBRmYCAN7K-Kc1YdvEV7Z6feNY0"
+pasta = "metas_1mSxSQ"
+aba = "[T] 8. Airport Received to Flight Departure"
+intervalo = "A3:AA"
