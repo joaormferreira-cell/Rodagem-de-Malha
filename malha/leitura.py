@@ -38,8 +38,10 @@ def ler_aba(pasta_dados, nome):
     arquivo = Path(pasta_dados) / cfg["pasta"] / f"{cfg['aba']}.csv"
     if not arquivo.exists():
         raise FileNotFoundError(
-            f"Falta o input '{nome}': {arquivo}\n"
-            f"  Baixe a aba '{cfg['aba']}' de https://docs.google.com/spreadsheets/d/{cfg['planilha']} como CSV.")
+            f"Falta a aba '{cfg['aba']}' (input '{nome}').\n"
+            f"  Na planilha Inputs Rodagem ela está vazia ou com #REF! (falta acesso à planilha de origem:\n"
+            f"  https://docs.google.com/spreadsheets/d/{cfg['planilha']}).\n"
+            f"  Depois de liberar, baixe o Inputs Rodagem de novo (.xlsx) para a pasta dados_reais.")
     # arquivo grande (ex.: distâncias, 72 MB): guarda uma cópia rápida (Parquet) e reaproveita
     # enquanto o CSV não mudar
     cache = arquivo.with_name(f"{arquivo.stem}.{cfg['intervalo'].replace(':', '-')}.cache.parquet")

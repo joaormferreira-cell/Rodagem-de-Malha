@@ -37,8 +37,8 @@ def main():
     faltando = []
     for modelo in sorted(MODELO.glob("*/*.csv")):
         pasta, aba = modelo.parent.name, modelo.stem
-        if pasta == "api":
-            continue
+        if pasta == "api" or aba == "[T] 4.1 TT and SOC Packed to Transporting to SOC":
+            continue   # API vem de CSV próprio; a [T] 4.1 de rotas é calculada pela ferramenta
         destino = DESTINO / pasta / modelo.name
         if aba == "0.0 Distances Available":
             destino.parent.mkdir(parents=True, exist_ok=True)

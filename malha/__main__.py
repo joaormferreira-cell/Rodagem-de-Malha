@@ -19,7 +19,10 @@ def main():
     parser.add_argument("--saida", default="saida", help="pasta onde salvar os resultados")
     args = parser.parse_args()
     if args.comando == "rodar":
-        rodar(args.dados, args.saida)
+        try:
+            rodar(args.dados, args.saida)
+        except FileNotFoundError as erro:   # input faltando: mensagem simples, sem detalhe técnico
+            sys.exit(f"\nFALTA UM INPUT\n{erro}")
     else:
         sys.exit(0 if comparar(args.dados) else 1)
 
