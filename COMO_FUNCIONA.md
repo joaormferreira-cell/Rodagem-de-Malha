@@ -6,7 +6,14 @@ Guia em linguagem simples, para entender e explicar a ferramenta sem ler código
 A ferramenta pega **os caminhos que os pacotes fazem** (ex.: FMH → SOC São Paulo → SOC Rio → HUB Rio), calcula **quanto tempo cada trecho leva** e, no fim, **o prazo total de entrega** (BWT).
 
 ## Como rodar
-No terminal do VS Code, na pasta do projeto:
+**Jeito simples:** dois cliques em `RODAR.bat` (prepara os dados de `dados_reais`, calcula, confere e abre o Excel).
+
+**O que sai (pasta `saida`):**
+- `Rodagem de Malha AAAA-MM-DD.xlsx`: Leia-me, Resumo, Meta x Realizado (se houver o realizado da By Step), Meta By Step, Rotas, Checagens
+- `BWT por caminho - todos os meses.csv`: o detalhe de cada caminho
+- `planilha\*.csv`: para o botão **Rodagem → Atualizar resultado** da planilha de saída (ver `apps_script/COMO_INSTALAR.md`)
+
+**Pelo terminal** do VS Code, na pasta do projeto:
 
 | Comando | O que faz |
 |---|---|

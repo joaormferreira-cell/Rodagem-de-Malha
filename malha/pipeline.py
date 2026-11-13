@@ -10,6 +10,7 @@ import pandas as pd
 from .calculo.by_step import meta_by_step
 from .calculo.meta_x_real import comparar as comparar_meta_real
 from .checagens import checar_inputs, checar_resultados
+from .gravar import exportar_para_botao
 from .relatorio import gerar_excel
 from .calculo.malha import montar_malha
 from .calculo.rotas import calcular_rotas, preparar_new_tt
@@ -63,6 +64,7 @@ def salvar(resultados, pasta_saida):
         arquivos.append(pasta / f"{nome}.parquet")
     if "bwt_caminhos" in resultados:
         arquivos.append(gerar_excel(resultados, pasta / f"Rodagem de Malha {datetime.now():%Y-%m-%d}.xlsx"))
+        arquivos += exportar_para_botao(resultados, pasta)   # CSVs para o botão da planilha
     else:   # rodagem interrompida: só as checagens
         resultados["checagens"].to_excel(pasta / "checagens.xlsx", index=False)
         arquivos.append(pasta / "checagens.xlsx")

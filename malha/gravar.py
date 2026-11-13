@@ -54,6 +54,25 @@ def plano_de_gravacao(resultados, existentes, meses_network):
     return plano
 
 
+def exportar_para_botao(resultados, pasta):
+    """
+    CSVs para o botão "Rodagem > Atualizar resultado" da planilha (apps_script/Rodagem.gs), um por aba,
+    com as colunas na ordem da planilha. A aba Network recebe só os meses de [saida].meses_network_output.
+    """
+    pasta = Path(pasta) / "planilha"
+    pasta.mkdir(parents=True, exist_ok=True)
+    meses = fontes().get("saida", {}).get("meses_network_output", [])
+    arquivos = []
+    for aba, (_, colunas, origem) in ABAS.items():
+        df = resultados[origem][colunas]
+        if aba == "Network BWT output":
+            df = df[df["period_start"].isin(meses)]
+        arquivo = pasta / f"{aba}.csv"
+        df.to_csv(arquivo, index=False, encoding="utf-8")
+        arquivos.append(arquivo)
+    return arquivos
+
+
 def gravar(resultados, confirmar=False):
     """Lê o que está na planilha, troca os meses e regrava. Sem confirmar=True só mostra o plano."""
     cfg = fontes().get("saida", {})
@@ -87,8 +106,14 @@ def gravar(resultados, confirmar=False):
         linhas = p["linhas"]
         # o cabeçalho é regravado junto: no processo atual ele ficou fora da ordem das colunas e o
         # Summary (que procura a coluna pelo nome do cabeçalho) lia a coluna vizinha
+        # (na Network o cabeçalho já está certo e A10 = "Bwt output": não regrava)
+        com_cab = aba != "Network BWT output"
+        if not com_cab:
+            conn.print_in_sheets(scopes=planilha, sh_name=f"'{aba}'!A{linha_cab}",
+                                 df=pd.DataFrame([["Bwt output"] + colunas[1:]]), print_columns=False)
         for i in range(0, max(len(linhas), 1), LOTE):
-            conn.print_in_sheets(scopes=planilha, sh_name=f"'{aba}'!A{linha_cab + (0 if i == 0 else 1 + i)}",
-                                 df=linhas.iloc[i:i + LOTE], print_columns=(i == 0))
+            primeira = com_cab and i == 0
+            conn.print_in_sheets(scopes=planilha, sh_name=f"'{aba}'!A{linha_cab + (0 if primeira else 1 + i)}",
+                                 df=linhas.iloc[i:i + LOTE], print_columns=primeira)
         print(f"  {aba}: gravado ({len(linhas)} linhas)")
     return plano
