@@ -114,3 +114,16 @@ def test_gravacao_substitui_mes_sem_duplicar():
     p = plano_de_gravacao(resultados, {"raw_bwt": hoje}, ["2026-11-01"])["raw_bwt"]
     assert p["manter"] == 1                                       # agosto fica; outubro antigo sai
     assert list(p["linhas"]["period_start"]) == ["2026-08-01", "2026-10-01", "2026-11-01"]
+
+
+def test_metas_padronizadas_nao_perdem_nada():
+    """As 17 abas de meta viram uma tabela única e voltam: o BWT calculado tem de ser idêntico."""
+    from malha.comparar import _diferencas
+    from malha.calculo.bwt import COLUNAS_SAIDA
+    from malha.padronizar import metas_longas, metas_para_abas
+    from malha.pipeline import ler_inputs
+    entradas = ler_inputs(RAIZ / "teste_local" / "dados_exemplo")
+    reconstruidas = dict(entradas, metas=metas_para_abas(metas_longas(entradas["metas"])))
+    with redirect_stdout(io.StringIO()):
+        a, b = calcular(entradas), calcular(reconstruidas)
+    assert not _diferencas(a["bwt_caminhos"], b["bwt_caminhos"], ["period_start", "E2E Path"], COLUNAS_SAIDA)
