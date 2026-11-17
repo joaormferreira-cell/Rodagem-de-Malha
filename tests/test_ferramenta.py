@@ -185,3 +185,38 @@ def test_meta_by_step_tem_todas_as_linhas_da_by_step():
     assert t.loc[KPI["M24"], "observação"] == ""                          # tem meta: sem nota
     assert "M01" in t.loc["M03 Seller: Label to Dropoff", "observação"]   # meta junta: aponta para o M01
     assert t.loc["M44 LH LMH-SOC", "observação"].startswith("Sem meta")
+
+
+def test_ponte_do_bwt():
+    """A ponte fecha: soma das etapas = real − meta; tempo + pedidos = total da etapa; onde atacar sem rota dobrada."""
+    from malha.calculo.by_step import KPI, TOTAL
+    from malha.calculo.ponte import onde_atacar, ponte_etapas
+    from malha.calculo.rotas_x_real import comparar_rotas
+
+    def base(mes, linhas):   # (kpi, horas, pedidos)
+        return pd.DataFrame([{"attempt_month": mes, "spx_channel": "SPX D2D", "main_route": "BR - BR", "kpi": k,
+                              "bwt_n": h * d, "bwt_d": d} for k, h, d in linhas])
+    meta = base("2026-11-01", [(TOTAL, 30, 100), (KPI["M24"], 10, 100), (KPI["M26"], 20, 100)])
+    real = base("2026-10-01", [(TOTAL, 36, 100), (KPI["M24"], 12, 100), (KPI["M26"], 20, 100),
+                               ("M44 LH LMH-SOC", 40, 10)])
+    p = ponte_etapas(meta, real).set_index("etapa (KPI By Step)")
+    assert abs(p.loc["BWT total", "a reduzir no BWT (h)"] - 6) < 1e-9
+    assert abs(p.loc[KPI["M24"], "a reduzir no BWT (h)"] - 2) < 1e-9 and abs(p.loc[KPI["M26"], "a reduzir no BWT (h)"]) < 1e-9
+    assert abs(p.iloc[1:]["a reduzir no BWT (h)"].sum() - 6) < 1e-9   # a etapa sem meta (M44) completa a ponte
+    e = p.loc[KPI["M24"]]
+    assert abs(e["por tempo (h)"] + e["por nº de pedidos (h)"] - e["a reduzir no BWT (h)"]) < 1e-9
+
+    rotas = pd.DataFrame({"period_start": "2026-10-01", "Route": ["SOC-A>HUB-B", "SOC-A>HUB-B-X", "SOC-A>SOC-C"],
+                          "route_type": ["SOC-HUB", "SOC-HUB", "SOC-SOC"], "Origin": "SOC-A",
+                          "Dest": ["HUB-B", "HUB-B-X", "SOC-C"], "ADO": [100, 50, 80], "Distance": 500,
+                          "fonte_tt": "New TT", "fonte_fila": ["Sem fila (regra)", "Sem fila (regra)", "Fila do próprio SOC"],
+                          "TT with Express": [10, 10, 10], "TT Queue and Unloading": [0, 0, 4], "TTFinal": [10, 10, 14]})
+    lh = pd.DataFrame({"rota": ["SOC-A>HUB-B", "SOC-A>SOC-C"], "mes": "2026-10-01", "pacotes": [1000, 1000],
+                       "horas_media": [14, 20], "horas_mediana": [14, 20], "estrada_media": [14, 12], "fila_media": [None, 8]})
+    rx = comparar_rotas(rotas, lh)
+    assert rx["real_pacotes"].sum() == 2000                                # HUB-B e HUB-B-X: real contado uma vez só
+    real_out = base("2026-10-01", [(TOTAL, 36, 100)])
+    a = onde_atacar(rx, real_out).set_index("onde")
+    assert a.loc["SOC-C", "efeito no BWT Brasil (h)"] == 4 * 1000 / 100    # fila 8h × meta 4h
+    assert a.loc["SOC-A>HUB-B", "efeito no BWT Brasil (h)"] == 4 * 1000 / 100
+    assert "SOC-A>HUB-B-X" not in a.index

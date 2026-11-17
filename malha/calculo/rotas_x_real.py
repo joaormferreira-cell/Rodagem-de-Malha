@@ -65,10 +65,15 @@ def comparar_rotas(rotas, real_bruto):
         "mes": m["period_start"], "rota": m["Route"], "tipo": m["route_type"],
         "origem": _normalizar(m["Origin"]), "destino": _normalizar(m["Dest"]),
         "pedidos_dia_meta": _num(m["ADO"]), "km": _num(m["Distance"]), "fonte_tempo": m["fonte_tt"],
+        "fonte_fila": m.get("fonte_fila", ""),
         "meta_viagem_h": _num(m["TT with Express"]), "meta_fila_h": _num(m["TT Queue and Unloading"]),
         "meta_total_h": _num(m["TTFinal"]),
     })
     t = meta.merge(real, on=["mes", "origem", "destino"], how="outer", indicator=True)
+    # a meta pode ter a mesma rota com e sem sufixo (ex.: HUB-LMA-01 e HUB-LMA-01-X): o real vai só para a de mais pedidos
+    t = t.sort_values("pedidos_dia_meta", ascending=False)
+    repetida = t.duplicated(["mes", "origem", "destino"]) & (t["_merge"] == "both")
+    t.loc[repetida, ["real_pacotes", "real_total_h", "real_mediana_h", "real_estrada_h", "real_fila_h"]] = np.nan
     so_real = t["_merge"] == "right_only"
     t.loc[so_real, "rota"] = t["origem"] + ">" + t["destino"]
     t["dif_total_h"] = t["real_total_h"] - t["meta_total_h"]
@@ -77,9 +82,10 @@ def comparar_rotas(rotas, real_bruto):
     t["situacao"] = _situacao(t["dif_total_h"])
     t.loc[t["_merge"] == "left_only", "situacao"] = "sem real (rota não rodou ou poucos pacotes)"
     t.loc[so_real, "situacao"] = "só no real (rota fora da malha planejada)"
+    t.loc[repetida, "situacao"] = "real contado na rota de mesmo código com/sem sufixo (-X)"
     t["ordem"] = np.where(so_real, 1, 0)
     t = t.sort_values(["mes", "ordem", "pedidos_dia_meta", "real_pacotes"], ascending=[True, True, False, False])
-    colunas = ["mes", "rota", "tipo", "situacao", "pedidos_dia_meta", "real_pacotes", "km", "fonte_tempo",
+    colunas = ["mes", "rota", "tipo", "situacao", "pedidos_dia_meta", "real_pacotes", "km", "fonte_tempo", "fonte_fila",
                "meta_viagem_h", "meta_fila_h", "meta_total_h", "real_estrada_h", "real_fila_h", "real_total_h",
                "real_mediana_h", "dif_estrada_h", "dif_fila_h", "dif_total_h"]
     return t[colunas].reset_index(drop=True)

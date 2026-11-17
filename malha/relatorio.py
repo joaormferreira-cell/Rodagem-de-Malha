@@ -1,6 +1,7 @@
 """
 Excel único da rodagem, para quem vai usar o resultado (não precisa abrir código).
-Abas: Leia-me · Resumo · Rodagem x Initiatives x Real · Meta By Step · BWT por caminho · Rotas · Rotas meta x real · Checagens.
+Abas: Leia-me · Resumo · Rodagem x Initiatives x Real · Ponte do BWT · Onde atacar · Meta By Step · BWT por caminho ·
+Rotas · Rotas meta x real · Checagens.
 """
 from datetime import datetime
 
@@ -16,6 +17,12 @@ ABAS = [
     ("Rodagem x Initiatives x Real", "Só se houver a aba Nov26-27 da Initiatives: para cada etapa (Brasil, BR - BR), "
                                      "meta da Rodagem | meta da Initiatives | realizado da By Step, lado a lado. "
                                      "O mês atual do realizado é parcial. Leia a coluna 'observação'."),
+    ("Ponte do BWT", "Só se houver o realizado da By Step: quanto cada etapa precisa cair (h no BWT) do real do último "
+                     "mês fechado até a meta. 'por tempo' = a etapa demora mais; 'por nº de pedidos' = passam mais "
+                     "pedidos por ela do que a malha prevê. As duas partes somam o 'a reduzir'."),
+    ("Onde atacar", "Só se houver o tempo real por rota: as rotas (estrada) e os SOCs (fila de recebimento) que mais "
+                    "puxam o BWT para cima. Efeito aproximado no BWT Brasil = horas acima da meta × pacotes ÷ pedidos "
+                    "do mês. Não cobre o tempo dentro dos SOCs (não há realizado por SOC)."),
     ("Meta x Realizado", "Só se houver o realizado da By Step: meta, realizado e diferença (h) por etapa e recorte. "
                          "dif_h > 0 = realizado acima da meta."),
     ("Meta By Step", "Meta de cada etapa no formato da By Step (Brasil, BR - BR), com todas as linhas da By Step. "
@@ -23,7 +30,8 @@ ABAS = [
     ("Meta By Step (rotas)", "Mesma meta por rota macro (SPM - SPM, SP > RJ, BR>BA State...)."),
     ("(arquivo CSV ao lado)", "'BWT por caminho - todos os meses.csv': uma linha por caminho com estações, pedidos/dia, "
                               "BWT total e o tempo de cada etapa (horas). Abre no Excel (separador ';')."),
-    ("Rotas", "Uma linha por rota: veículos, espera para sair, viagem, fila e de onde veio o tempo (fonte_tt)."),
+    ("Rotas", "Uma linha por rota: veículos, espera para sair, viagem, fila e de onde veio a viagem (fonte_tt) "
+              "e a fila (fonte_fila)."),
     ("Rotas meta x real", "Só se houver o tempo real por rota (consultas/lh_real_por_rota.sql): meta × real de cada "
                           "rota, separando estrada (saiu → chegou) e fila (chegou → recebido). dif > 0 = real acima."),
     ("Checagens", "Conferências dos inputs e dos resultados. ERRO para a rodagem; AVISO é ponto de atenção."),
@@ -75,6 +83,9 @@ def gerar_excel(resultados, arquivo):
     abas = {"Resumo": _resumo(caminhos)}
     if "tres_visoes" in resultados:
         abas["Rodagem x Initiatives x Real"] = resultados["tres_visoes"]
+    for chave, nome in [("ponte_bwt", "Ponte do BWT"), ("onde_atacar", "Onde atacar")]:
+        if chave in resultados:
+            abas[nome] = resultados[chave]
     if "meta_x_realizado" in resultados:
         abas["Meta x Realizado"] = resultados["meta_x_realizado"]
     abas.update({

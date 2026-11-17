@@ -221,12 +221,19 @@ def fila_no_destino(rotas, arrived_received, periodo, p):
     if mes not in tabela.columns:
         print(f"AVISO: mês {mes} não está em Arrived to Received; fila = 0")
         fila = pd.Series(0.0, index=rotas.index)
+        fonte = pd.Series("Sem dado do mês (0)", index=rotas.index)
     else:
         horas = pd.to_numeric(tabela[mes], errors="coerce")
         do_soc = rotas["Dest"].map(pd.Series(horas.to_numpy(), index=tabela["code"]))
-        fila = pd.Series(np.where(rotas["Dest"].str[:3] == "SOC", do_soc.fillna(horas.mean()), p["fila_nao_soc_h"]),
-                         index=rotas.index)
-    fila[rotas["route_type"].isin(p["tipos_sem_fila"]) | (rotas["Distance"] < p["dist_min_tt_km"])] = 0
+        para_soc = rotas["Dest"].str[:3] == "SOC"
+        fila = pd.Series(np.where(para_soc, do_soc.fillna(horas.mean()), p["fila_nao_soc_h"]), index=rotas.index)
+        fonte = pd.Series(np.where(~para_soc, "Fora de SOC (valor padrão)",
+                                   np.where(do_soc.notna(), "Fila do próprio SOC", "Média dos SOCs (SOC sem fila própria)")),
+                          index=rotas.index)
+    sem_fila = rotas["route_type"].isin(p["tipos_sem_fila"]) | (rotas["Distance"] < p["dist_min_tt_km"])
+    fila[sem_fila] = 0
+    fonte[sem_fila] = "Sem fila (regra)"
+    rotas["fonte_fila"] = fonte
     rotas["TT Queue and Unloading"] = fila.astype(float)
     rotas["TTFinal"] = rotas["TT Queue and Unloading"] + rotas["TT with Express"]
     return rotas
@@ -244,12 +251,13 @@ def rotas_aereas_e_fixas(rotas, air_lh, p):
     rotas.loc[aerea | fixa, "LHExpress Ident."] = False
     rotas.loc[aerea, "fonte_tt"] = "Air LH"
     rotas.loc[fixa, "fonte_tt"] = "Valor fixo"
+    rotas.loc[aerea | fixa, "fonte_fila"] = "Sem fila (TT aéreo ou fixo)"
     return rotas
 
 
 # ---------------- Execução ----------------
 def calcular_rotas(malha, expressas_bruto, new_tt_bruto, spr, tempos_soc, arrived_received, air_lh):
-    """Uma linha por rota e mês, com as colunas da aba [T] 4.1 + a origem do tempo de viagem (fonte_tt)."""
+    """Uma linha por rota e mês, com as colunas da aba [T] 4.1 + de onde veio a viagem (fonte_tt) e a fila (fonte_fila)."""
     p = premissas()["rotas"]
     malha = limpar_malha(malha, p)
     expressas = preparar_expressas(expressas_bruto)
@@ -264,5 +272,5 @@ def calcular_rotas(malha, expressas_bruto, new_tt_bruto, spr, tempos_soc, arrive
         rotas = tempo_de_viagem(rotas, expressas, new_tt, periodo, p)
         rotas = fila_no_destino(rotas, arrived_received, periodo, p)
         rotas = rotas_aereas_e_fixas(rotas, air_lh, p)
-        resultado.append(rotas[COLUNAS_SAIDA + ["fonte_tt"]])
+        resultado.append(rotas[COLUNAS_SAIDA + ["fonte_tt", "fonte_fila"]])
     return pd.concat(resultado, ignore_index=True)

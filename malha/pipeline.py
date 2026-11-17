@@ -11,6 +11,7 @@ from .calculo.by_step import meta_by_step
 from .calculo.meta_x_real import comparar as comparar_meta_real
 from .calculo.rotas_x_real import comparar_rotas
 from .calculo.initiatives import tres_visoes
+from .calculo.ponte import onde_atacar, ponte_etapas
 from .checagens import checar_inputs, checar_resultados
 from .gravar import exportar_para_botao
 from .relatorio import gerar_excel
@@ -96,6 +97,14 @@ def rodar(pasta_dados, pasta_saida):
     lh_real = Path(pasta_dados) / "lh_real" / "realizado_rotas.csv"
     if lh_real.exists():   # opcional: tempo real de estrada por rota (consultas/lh_real_por_rota.sql)
         resultados["rotas_x_real"] = comparar_rotas(resultados["rotas"], pd.read_csv(lh_real, encoding="utf-8-sig"))
+    if bruto is not None:   # ponte: real do último mês fechado × meta; e onde atacar, se houver o real por rota
+        ponte = ponte_etapas(resultados["by_step_meta"], bruto)
+        if ponte is not None:
+            resultados["ponte_bwt"] = ponte
+        if "rotas_x_real" in resultados:
+            atacar = onde_atacar(resultados["rotas_x_real"], bruto)
+            if atacar is not None:
+                resultados["onde_atacar"] = atacar
     checar_resultados(resultados, entradas, rel)
     rel.imprimir()
     arquivos = salvar({**resultados, "checagens": rel.tabela()}, pasta_saida)
