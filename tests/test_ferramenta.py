@@ -172,3 +172,16 @@ def test_metas_padronizadas_nao_perdem_nada():
     with redirect_stdout(io.StringIO()):
         a, b = calcular(entradas), calcular(reconstruidas)
     assert not _diferencas(a["bwt_caminhos"], b["bwt_caminhos"], ["period_start", "E2E Path"], COLUNAS_SAIDA)
+
+
+def test_meta_by_step_tem_todas_as_linhas_da_by_step():
+    from malha.calculo.by_step import ETAPAS_BY_STEP, KPI, TOTAL
+    from malha.relatorio import _by_step_brasil
+    meta = pd.DataFrame({"attempt_month": "2026-11-01", "spx_channel": "SPX D2D", "main_route": "BR - BR",
+                         "kpi": [KPI["M01"], KPI["M24"], TOTAL], "media_h": [28.0, 8.0, 110.0]})
+    t = _by_step_brasil(meta).set_index("etapa (KPI By Step)")
+    assert set(ETAPAS_BY_STEP) <= set(t.index) and t.index[-1] == TOTAL
+    assert t.index.get_loc(KPI["M01"]) < t.index.get_loc("M02 Seller: Paid to Label")
+    assert t.loc[KPI["M24"], "observação"] == ""                          # tem meta: sem nota
+    assert "M01" in t.loc["M03 Seller: Label to Dropoff", "observação"]   # meta junta: aponta para o M01
+    assert t.loc["M44 LH LMH-SOC", "observação"].startswith("Sem meta")

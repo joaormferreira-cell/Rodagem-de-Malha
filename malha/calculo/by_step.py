@@ -38,6 +38,64 @@ KPI = {
 }
 TOTAL = "FLOW BWT TOT"
 
+# Todas as linhas da By Step (base joao_bwt_by_step_mece), para a aba "Meta By Step" bater linha a linha com ela.
+ETAPAS_BY_STEP = [
+    "M02 Seller: Paid to Label", "M03 Seller: Label to Dropoff", "M04 Seller: Label to Pickup",
+    "M05 FBS: Paid to Received", "M06 FBS: Received to Departure", "M07 FM: Dropoff to Pickup",
+    "M08 FM: Dropoff Point to Dropoff Point", "M09 FM: Pickup to SOC", "M10 FM: Pickup to FMH",
+    "M11 FM: Pickup to LMH", "M12 FM: Pickup to XPT", "M13 LH FBS-SOC", "M14 LH FBS-FMH", "M15 LH FBS-LMH",
+    "M16 LH FBS-XPT", "M17 LH FBS-Airport", "M18 FMH: Received to Packed", "M19 FMH: Packed to Departure",
+    "M20 LH FMH-SOC", "M21 LH FMH-LMH", "M22 LH FMH-XPT", "M23 LH FMH-FMH", "M24 SOC1: Received to Packed",
+    "M25 SOC1: Packed to Departure", "M26 LH1 (SOC1-SOC2)", "M27 SOC2: Received to Packed",
+    "M28 SOC2: Packed to Departure", "M29 LH2 (SOC2+-SOC)", "M30 SOC3: Received to Packed",
+    "M31 SOC3: Packed to Departure", "M32 LH SOC-LMH", "M33 LH SOC-XPT", "M34 LH SOC-FMH", "M35 LH SOC-Airport",
+    "M36 Airport: Received to Departure", "M37 Airport: Connection (Airport-Airport)", "M38 LH Airport-SOC",
+    "M39 LH Airport-LMH", "M40 LH Airport-XPT", "M41 LMH: LH Transported to Received",
+    "M42 LMH: Received to Departure", "M43 LH LMH-XPT", "M44 LH LMH-SOC", "M45 LH LMH-FMH", "M46 LH LMH-LMH",
+    "M47 Mobile HUB: Feeder Transferring to Transferred", "M48 XPT: LH Arrived to Received",
+    "M49 XPT: Received to Departure", "M50 LH XPT-SOC", "M51 LH XPT-LMH", "M52 LH XPT-FMH", "M53 LH XPT-XPT",
+    "M54 LMH to Pickup Point", "M56 SOC to Pickup Point", "M57 FMH to Pickup Point", "M58 Pickup Point to LMH",
+    "M59 Pickup Point to SOC", "M60 Pickup Point to FMH", "M62 LMH Delivering to 1st", "M63 XPT Delivering to 1st",
+    "M64 SOC Delivering to 1st", "M65 FBS Delivering to 1st", "M66 FMH Delivering to 1st",
+    "M67 Mobile HUB: Feeder Delivering to 1st", "M69 Dropoff Point Delivering to 1st",
+    "M72 Pickup Point: Received to Departure (return)", "M99 Airport Delivering to 1st", "M99 LH LMH-Airport",
+    "Z Broken path orders", "Z Pedidos sem nenhum bipe",
+]
+
+# Por que uma etapa da By Step fica sem meta (código → explicação simples). Só aparece quando a etapa está vazia.
+_SEM_META = [
+    (["M02", "M03", "M04"], "A Rodagem tem uma meta só para M02 + M03 + M04: ver a linha M01 APT."),
+    (["M05", "M06"], "A Rodagem tem uma meta só para M05 + M06: ver a linha M05+M06."),
+    (["M34", "M44", "M45", "M50", "M51", "M52"],
+     "Sem meta: é um trecho de volta (ex.: HUB → SOC). Nenhum caminho da demanda anda para trás."),
+    (["M08", "M23", "M46", "M53"],
+     "Sem meta: transferência entre duas estações do mesmo tipo. Nenhum caminho da demanda tem isso."),
+    (["M11", "M12", "M14", "M16", "M22"], "Sem meta: nenhum caminho da demanda tem este trecho direto."),
+    (["M17", "M35", "M36", "M37", "M38", "M39", "M40", "M99"],
+     "Sem meta: nenhum caminho da demanda passa por aeroporto."),
+    (["M54", "M56", "M57", "M58", "M59", "M60", "M72"], "Sem meta: a Rodagem não calcula Pickup Point."),
+    (["M47", "M67"], "Sem meta: a Rodagem não calcula Mobile HUB."),
+    (["M64", "M65", "M66", "M69"], "Sem meta: na Rodagem a entrega sempre sai do HUB ou do XPT."),
+    (["Z"], "Linha de controle da By Step, não é etapa."),
+]
+_JUNTA = {KPI["M01"]: "Junta M02 + M03 + M04 da By Step (a aba [T] 1.0 tem um número só).",
+          KPI["M05+M06"]: "Junta M05 + M06 da By Step (a aba [T] 3.1 tem um número só)."}
+
+
+def observacao(kpi, tem_meta):
+    """Texto da coluna 'observação' da aba Meta By Step."""
+    if kpi in _JUNTA:
+        return _JUNTA[kpi]
+    if tem_meta or kpi == TOTAL:
+        return ""
+    codigo = kpi.split(" ")[0]
+    return next((nota for codigos, nota in _SEM_META if codigo in codigos), "Sem meta: a Rodagem não calcula esta etapa.")
+
+
+def ordem_by_step(kpi):
+    """Ordem das linhas: pelo código (M01, M02…); a meta que junta etapas vem antes delas; total no fim."""
+    return (kpi == TOTAL, kpi[:3], "+" not in kpi, kpi)
+
 # ---------- rota macro (mesma regra da query da By Step, aplicada às cidades das estações) ----------
 _SPM = {"aruja", "barueri", "caieiras", "cajamar", "carapicuiba", "cotia", "diadema", "embu das artes",
         "ferraz de vasconcelos", "poa", "francisco morato", "franco da rocha", "guarulhos", "itapevi",

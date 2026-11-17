@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .calculo.bwt import COLUNAS_SAIDA as COLUNAS_BWT
-from .calculo.by_step import TOTAL
+from .calculo.by_step import ETAPAS_BY_STEP, observacao, ordem_by_step
 from .calculo.rotas_x_real import resumo as resumo_rotas
 
 ABAS = [
@@ -18,7 +18,8 @@ ABAS = [
                                      "O mês atual do realizado é parcial. Leia a coluna 'observação'."),
     ("Meta x Realizado", "Só se houver o realizado da By Step: meta, realizado e diferença (h) por etapa e recorte. "
                          "dif_h > 0 = realizado acima da meta."),
-    ("Meta By Step", "Meta de cada etapa no formato da By Step (Brasil, BR - BR). Comparar com o realizado."),
+    ("Meta By Step", "Meta de cada etapa no formato da By Step (Brasil, BR - BR), com todas as linhas da By Step. "
+                     "Etapa sem meta fica vazia e a coluna 'observação' diz por quê."),
     ("Meta By Step (rotas)", "Mesma meta por rota macro (SPM - SPM, SP > RJ, BR>BA State...)."),
     ("(arquivo CSV ao lado)", "'BWT por caminho - todos os meses.csv': uma linha por caminho com estações, pedidos/dia, "
                               "BWT total e o tempo de cada etapa (horas). Abre no Excel (separador ';')."),
@@ -48,10 +49,12 @@ def _resumo(caminhos):
 
 
 def _by_step_brasil(meta):
+    """Todas as etapas da By Step, na mesma ordem; etapa sem meta fica vazia e a 'observação' diz por quê."""
     br = meta[meta["main_route"] == "BR - BR"]
     tabela = br.pivot_table(index="kpi", columns=["spx_channel", "attempt_month"], values="media_h", aggfunc="first")
-    tabela = tabela.reindex(sorted(tabela.index, key=lambda k: (k == TOTAL, k)))
+    tabela = tabela.reindex(sorted(set(tabela.index) | set(ETAPAS_BY_STEP), key=ordem_by_step))
     tabela.columns = [f"{canal} | {mes}" for canal, mes in tabela.columns]
+    tabela["observação"] = [observacao(k, tem) for k, tem in zip(tabela.index, tabela.notna().any(axis=1))]
     return tabela.reset_index().rename(columns={"kpi": "etapa (KPI By Step)"})
 
 
