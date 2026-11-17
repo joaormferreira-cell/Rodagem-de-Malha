@@ -1,6 +1,6 @@
 """
 Excel único da rodagem, para quem vai usar o resultado (não precisa abrir código).
-Abas: Leia-me · Resumo · Meta By Step · BWT por caminho · Rotas · Rotas meta x real · Checagens.
+Abas: Leia-me · Resumo · Rodagem x Initiatives x Real · Meta By Step · BWT por caminho · Rotas · Rotas meta x real · Checagens.
 """
 from datetime import datetime
 
@@ -13,6 +13,9 @@ from .calculo.rotas_x_real import resumo as resumo_rotas
 
 ABAS = [
     ("Resumo", "BWT médio (horas e dias) por mês, canal e região, ponderado pelos pedidos/dia."),
+    ("Rodagem x Initiatives x Real", "Só se houver a aba Nov26-27 da Initiatives: para cada etapa (Brasil, BR - BR), "
+                                     "meta da Rodagem | meta da Initiatives | realizado da By Step, lado a lado. "
+                                     "O mês atual do realizado é parcial. Leia a coluna 'observação'."),
     ("Meta x Realizado", "Só se houver o realizado da By Step: meta, realizado e diferença (h) por etapa e recorte. "
                          "dif_h > 0 = realizado acima da meta."),
     ("Meta By Step", "Meta de cada etapa no formato da By Step (Brasil, BR - BR). Comparar com o realizado."),
@@ -67,6 +70,8 @@ def gerar_excel(resultados, arquivo):
     caminhos[COLUNAS_BWT].to_csv(arquivo.with_name("BWT por caminho - todos os meses.csv"), index=False,
                                  encoding="utf-8-sig", sep=";", decimal=",")
     abas = {"Resumo": _resumo(caminhos)}
+    if "tres_visoes" in resultados:
+        abas["Rodagem x Initiatives x Real"] = resultados["tres_visoes"]
     if "meta_x_realizado" in resultados:
         abas["Meta x Realizado"] = resultados["meta_x_realizado"]
     abas.update({

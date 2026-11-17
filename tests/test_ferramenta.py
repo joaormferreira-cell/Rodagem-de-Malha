@@ -135,6 +135,32 @@ def test_rotas_meta_x_real():
     assert t.loc["SOC-A>SOC-E", "situacao"].startswith("só no real")
 
 
+def test_tres_visoes_initiatives():
+    """Lê a grade da aba Nov26-27 (total em dias, etapa em horas) e põe Rodagem | Initiatives | By Step lado a lado."""
+    from malha.calculo.initiatives import tres_visoes
+    grade = pd.DataFrame([
+        ["", "", "", "", "Share", "LT", "Share", "LT"],
+        ["", "", "", "", "Actuals", "Actuals", "Target", "Target"],
+        ["", "Key", "Leg", "Status", "Oct/26", "Oct/26", "Nov/26", "Nov/26"],
+        ["", "", "   (-) SPX D2D", "-", "85%", "4.90", "81%", "4.75"],
+        ["", "", "1st SOC", "SOC1 Received to SoC Packed (With Transshipment)", "98%", "8.46", "98%", "8.04"],
+    ])
+    linha = lambda mes, kpi, n, d: {"attempt_month": mes, "spx_channel": "SPX D2D",  # noqa: E731
+                                     "main_route": "BR - BR", "kpi": kpi, "bwt_n": n, "bwt_d": d}
+    meta = pd.DataFrame([linha("2026-11-01", "FLOW BWT TOT", 1100, 10),
+                         linha("2026-11-01", "M24 SOC1: Received to Packed", 72, 9)])
+    real = pd.DataFrame([linha("2026-10-01", "FLOW BWT TOT", 1200, 10),
+                         linha("2026-10-01", "M24 SOC1: Received to Packed", 50, 5)])
+    t = tres_visoes(meta, grade, real).set_index("etapa (Initiatives)")
+    total, soc1 = "BWT total SPX D2D", "SOC1 Received to SoC Packed (With Transshipment)"
+    assert t.loc[total, "Meta Initiatives Nov/26"] == 4.75 * 24        # dias → horas
+    assert t.loc[total, "Meta Rodagem Nov/26"] == 110
+    assert t.loc[soc1, "Meta Rodagem Nov/26"] == 8 and t.loc[soc1, "Meta Initiatives Nov/26"] == 8.04
+    assert t.loc[soc1, "% pedidos Rodagem"] == 90
+    assert t.loc[soc1, "Real By Step Out/26"] == 10
+    assert "medida diferente" in t.loc[soc1, "observação"]            # 8,46h na Initiatives × 10h na By Step
+
+
 def test_metas_padronizadas_nao_perdem_nada():
     """As 17 abas de meta viram uma tabela única e voltam: o BWT calculado tem de ser idêntico."""
     from malha.comparar import _diferencas

@@ -10,6 +10,7 @@ import pandas as pd
 from .calculo.by_step import meta_by_step
 from .calculo.meta_x_real import comparar as comparar_meta_real
 from .calculo.rotas_x_real import comparar_rotas
+from .calculo.initiatives import tres_visoes
 from .checagens import checar_inputs, checar_resultados
 from .gravar import exportar_para_botao
 from .relatorio import gerar_excel
@@ -82,9 +83,16 @@ def rodar(pasta_dados, pasta_saida):
         raise SystemExit(f"\nRodagem interrompida: corrija os ERROS acima (lista em {Path(pasta_saida) / 'checagens.xlsx'}).")
     resultados = calcular(entradas)
     realizado = Path(pasta_dados) / "by_step" / "realizado.csv"
+    bruto = None
     if realizado.exists():   # opcional: compara a meta com o realizado da By Step
         bruto = pd.read_csv(realizado, dtype={"bwt_n": float, "bwt_d": float})
         resultados["meta_x_realizado"] = comparar_meta_real(resultados["by_step_meta"], bruto)
+    initiatives = Path(pasta_dados) / "initiatives" / "initiatives.csv"
+    if initiatives.exists():   # opcional: meta da Initiatives (aba Nov26-27) para as 3 visões por etapa
+        grade = pd.read_csv(initiatives, header=None, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+        visoes = tres_visoes(resultados["by_step_meta"], grade, bruto)
+        if visoes is not None:
+            resultados["tres_visoes"] = visoes
     lh_real = Path(pasta_dados) / "lh_real" / "realizado_rotas.csv"
     if lh_real.exists():   # opcional: tempo real de estrada por rota (consultas/lh_real_por_rota.sql)
         resultados["rotas_x_real"] = comparar_rotas(resultados["rotas"], pd.read_csv(lh_real, encoding="utf-8-sig"))
