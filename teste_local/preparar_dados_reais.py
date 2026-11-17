@@ -4,6 +4,7 @@ Monta a pasta de dados reais no mesmo formato de dados_exemplo, a partir de:
   dados_reais/0.0 Distances Available.csv  (aba de distâncias, baixada como CSV)
   dados_reais/demanda_bwt.csv              (export da tabela dev_brbi_opslgc.joao_malha_demanda_bwt)
   dados_reais/station_names.csv            (export da tabela dev_brbi_opslgc.joao_malha_station_names)
+  dados_reais/lh_real_por_rota.csv         (opcional: resultado de consultas/lh_real_por_rota.sql)
 Saída: dados_reais/pronto/  → usar com  python -m malha rodar --dados dados_reais/pronto
 
 Uso: python teste_local/preparar_dados_reais.py
@@ -61,6 +62,9 @@ def main():
     if (ORIGEM / "by_step_realizado.csv").exists():   # opcional: realizado da By Step para meta × realizado
         (DESTINO / "by_step").mkdir(exist_ok=True)
         shutil.copyfile(ORIGEM / "by_step_realizado.csv", DESTINO / "by_step" / "realizado.csv")
+    if (ORIGEM / "lh_real_por_rota.csv").exists():   # opcional: tempo real por rota para Rotas meta x real
+        (DESTINO / "lh_real").mkdir(exist_ok=True)
+        shutil.copyfile(ORIGEM / "lh_real_por_rota.csv", DESTINO / "lh_real" / "realizado_rotas.csv")
 
     print(f"Pronto: {DESTINO}")
     print(f"  demanda: {len(demanda)} linhas | meses: {sorted(demanda['period_start'].unique())}")

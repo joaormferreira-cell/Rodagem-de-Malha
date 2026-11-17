@@ -9,7 +9,7 @@ A ferramenta pega **os caminhos que os pacotes fazem** (ex.: FMH → SOC São Pa
 **Jeito simples:** dois cliques em `RODAR.bat` (prepara os dados de `dados_reais`, calcula, confere e abre o Excel).
 
 **O que sai (pasta `saida`):**
-- `Rodagem de Malha AAAA-MM-DD.xlsx`: Leia-me, Resumo, Meta x Realizado (se houver o realizado da By Step), Meta By Step, Rotas, Checagens
+- `Rodagem de Malha AAAA-MM-DD.xlsx`: Leia-me, Resumo, Meta x Realizado (se houver o realizado da By Step), Meta By Step, Rotas, Rotas meta x real (se houver o real por rota: `consultas/lh_real_por_rota.sql`), Checagens
 - `BWT por caminho - todos os meses.csv`: o detalhe de cada caminho
 - `planilha\*.csv`: para o botão **Rodagem → Atualizar resultado** da planilha de saída (ver `apps_script/COMO_INSTALAR.md`)
 

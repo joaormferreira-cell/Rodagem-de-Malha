@@ -116,6 +116,25 @@ def test_gravacao_substitui_mes_sem_duplicar():
     assert list(p["linhas"]["period_start"]) == ["2026-08-01", "2026-10-01", "2026-11-01"]
 
 
+def test_rotas_meta_x_real():
+    """Junta meta e real pela rota (mesmo com sufixo [DC]/-X no código) e classifica a diferença."""
+    from malha.calculo.rotas_x_real import comparar_rotas
+    rotas = pd.DataFrame({"period_start": "2026-10-01", "Route": ["SOC-A>SOC-B", "SOC-A>HUB-C-X", "SOC-A>SOC-D"],
+                          "route_type": ["SOC-SOC", "SOC-HUB", "SOC-SOC"], "Origin": "SOC-A",
+                          "Dest": ["SOC-B", "HUB-C-X", "SOC-D"], "ADO": [100, 50, 10], "Distance": [500, 30, 900],
+                          "fonte_tt": "New TT", "TT with Express": [10, 2, 20], "TT Queue and Unloading": [4, 0, 4],
+                          "TTFinal": [14, 2, 24]})
+    real = pd.DataFrame({"rota": ["SOC-A>SOC-B", "SOC-A[DC]>HUB-C", "SOC-A>SOC-E"], "mes": "2026-10-01",
+                         "pacotes": [1000, 500, 300], "horas_media": [20, 2.5, 8], "horas_mediana": [19, 2, 8],
+                         "estrada_media": [11, 2.5, 6], "fila_media": [9, None, 2]})
+    t = comparar_rotas(rotas, real).set_index("rota")
+    assert t.loc["SOC-A>SOC-B", "situacao"] == "real acima da meta (+4h)"
+    assert t.loc["SOC-A>SOC-B", "dif_fila_h"] == 5 and t.loc["SOC-A>SOC-B", "dif_estrada_h"] == 1
+    assert t.loc["SOC-A>HUB-C-X", "situacao"] == "ok (até 2h)"
+    assert t.loc["SOC-A>SOC-D", "situacao"].startswith("sem real")
+    assert t.loc["SOC-A>SOC-E", "situacao"].startswith("só no real")
+
+
 def test_metas_padronizadas_nao_perdem_nada():
     """As 17 abas de meta viram uma tabela única e voltam: o BWT calculado tem de ser idêntico."""
     from malha.comparar import _diferencas

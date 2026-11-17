@@ -1,6 +1,6 @@
 """
 Excel único da rodagem, para quem vai usar o resultado (não precisa abrir código).
-Abas: Leia-me · Resumo · Meta By Step · BWT por caminho · Rotas · Checagens.
+Abas: Leia-me · Resumo · Meta By Step · BWT por caminho · Rotas · Rotas meta x real · Checagens.
 """
 from datetime import datetime
 
@@ -9,6 +9,7 @@ import pandas as pd
 
 from .calculo.bwt import COLUNAS_SAIDA as COLUNAS_BWT
 from .calculo.by_step import TOTAL
+from .calculo.rotas_x_real import resumo as resumo_rotas
 
 ABAS = [
     ("Resumo", "BWT médio (horas e dias) por mês, canal e região, ponderado pelos pedidos/dia."),
@@ -19,6 +20,8 @@ ABAS = [
     ("(arquivo CSV ao lado)", "'BWT por caminho - todos os meses.csv': uma linha por caminho com estações, pedidos/dia, "
                               "BWT total e o tempo de cada etapa (horas). Abre no Excel (separador ';')."),
     ("Rotas", "Uma linha por rota: veículos, espera para sair, viagem, fila e de onde veio o tempo (fonte_tt)."),
+    ("Rotas meta x real", "Só se houver o tempo real por rota (consultas/lh_real_por_rota.sql): meta × real de cada "
+                          "rota, separando estrada (saiu → chegou) e fila (chegou → recebido). dif > 0 = real acima."),
     ("Checagens", "Conferências dos inputs e dos resultados. ERRO para a rodagem; AVISO é ponto de atenção."),
 ]
 
@@ -49,6 +52,15 @@ def _by_step_brasil(meta):
     return tabela.reset_index().rename(columns={"kpi": "etapa (KPI By Step)"})
 
 
+def _linha_rotas_x_real(resultados):
+    rr = resumo_rotas(resultados["rotas_x_real"]) if "rotas_x_real" in resultados else None
+    if not rr:
+        return []
+    return [["Rotas: meta x real", f"{rr['rotas']} rotas comparadas. Pacotes em rotas com diferença até 2h: "
+             f"{rr['ate_2h']:.0f}% · até 4h: {rr['ate_4h']:.0f}% · real 4h+ acima: {rr['acima_4h']:.0f}% · "
+             f"real 4h+ abaixo: {rr['abaixo_4h']:.0f}%"]]
+
+
 def gerar_excel(resultados, arquivo):
     """Excel leve, só com resumos; o detalhe por caminho (centenas de milhares de linhas) vai num CSV ao lado."""
     caminhos = resultados["bwt_caminhos"]
@@ -61,6 +73,7 @@ def gerar_excel(resultados, arquivo):
         "Meta By Step": _by_step_brasil(resultados["by_step_meta"]),
         "Meta By Step (rotas)": resultados["by_step_meta"],
         "Rotas": resultados["rotas"],
+        **({"Rotas meta x real": resultados["rotas_x_real"]} if "rotas_x_real" in resultados else {}),
         "Checagens": resultados.get("checagens", pd.DataFrame()),
     })
     ado = caminhos["ADO"].sum()
@@ -72,6 +85,7 @@ def gerar_excel(resultados, arquivo):
         ["Caminhos", f"{len(caminhos):,}".replace(",", ".")],
         ["Pedidos/dia (soma dos meses)", f"{ado:,.0f}".replace(",", ".")],
         ["BWT médio (ponderado)", f"{(caminhos['bwt_total_hours'] * caminhos['ADO']).sum() / ado:.1f} horas"],
+        *_linha_rotas_x_real(resultados),
         [],
         ["Aba", "O que tem"],
     ] + [[nome, desc] for nome, desc in ABAS] + [

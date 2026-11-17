@@ -9,6 +9,7 @@ import pandas as pd
 
 from .calculo.by_step import meta_by_step
 from .calculo.meta_x_real import comparar as comparar_meta_real
+from .calculo.rotas_x_real import comparar_rotas
 from .checagens import checar_inputs, checar_resultados
 from .gravar import exportar_para_botao
 from .relatorio import gerar_excel
@@ -84,6 +85,9 @@ def rodar(pasta_dados, pasta_saida):
     if realizado.exists():   # opcional: compara a meta com o realizado da By Step
         bruto = pd.read_csv(realizado, dtype={"bwt_n": float, "bwt_d": float})
         resultados["meta_x_realizado"] = comparar_meta_real(resultados["by_step_meta"], bruto)
+    lh_real = Path(pasta_dados) / "lh_real" / "realizado_rotas.csv"
+    if lh_real.exists():   # opcional: tempo real de estrada por rota (consultas/lh_real_por_rota.sql)
+        resultados["rotas_x_real"] = comparar_rotas(resultados["rotas"], pd.read_csv(lh_real, encoding="utf-8-sig"))
     checar_resultados(resultados, entradas, rel)
     rel.imprimir()
     arquivos = salvar({**resultados, "checagens": rel.tabela()}, pasta_saida)
