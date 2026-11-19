@@ -205,6 +205,15 @@ def test_ponte_do_bwt():
     assert abs(p.iloc[1:]["a reduzir no BWT (h)"].sum() - 6) < 1e-9   # a etapa sem meta (M44) completa a ponte
     e = p.loc[KPI["M24"]]
     assert abs(e["por tempo (h)"] + e["por nº de pedidos (h)"] - e["a reduzir no BWT (h)"]) < 1e-9
+    assert p["comparação"].unique().tolist() == ["Real Out/26 (último mês fechado) × Meta Nov/26"]
+
+    # com o mês da meta já no realizado (parcial): a comparação do mês em andamento vem primeiro, com o último dia
+    nov = base("2026-11-01", [(TOTAL, 31, 50), (KPI["M24"], 11, 50), (KPI["M26"], 20, 50)])
+    p2 = ponte_etapas(meta, pd.concat([nov, real]), {"2026-11-01": "2026-11-18"})
+    total = p2[p2["etapa (KPI By Step)"] == "BWT total"].set_index("comparação")["a reduzir no BWT (h)"]
+    assert list(total.index) == ["Real Nov/26 até 18/11 (mês em andamento) × Meta Nov/26",
+                                 "Real Out/26 (último mês fechado) × Meta Nov/26"]
+    assert abs(total.iloc[0] - 1) < 1e-9 and abs(total.iloc[1] - 6) < 1e-9
 
     rotas = pd.DataFrame({"period_start": "2026-10-01", "Route": ["SOC-A>HUB-B", "SOC-A>HUB-B-X", "SOC-A>SOC-C"],
                           "route_type": ["SOC-HUB", "SOC-HUB", "SOC-SOC"], "Origin": "SOC-A",
@@ -286,3 +295,40 @@ def test_simulador_de_malha():
         novo, previsto = bwt(rotas), efeito(sim, **mudanca)
         for k in previsto:
             assert abs((novo[k] - base[k]) - previsto[k]) < 1e-9, (mudanca, k)
+
+
+def test_virar_expressa_pela_velocidade_real():
+    """'Virar expressa' = km ÷ velocidade real das expressas oficiais da mesma faixa; sem expressa real, sem opção."""
+    from malha.calculo.simulador_malha import MIN_ROTAS_FAIXA, expressa_pelo_real
+    n = MIN_ROTAS_FAIXA
+    real = pd.DataFrame({"mes": "2026-11-01", "fonte_tempo": "Expressa oficial",
+                         "km": [700] * n + [1000] * (n - 1),                      # 900 a 1.200 km: poucas rotas
+                         "real_estrada_h": [14] * n + [20] * (n - 1), "real_pacotes": 1000})
+    sim = pd.DataFrame({"Route": ["A", "B", "C", "D"], "Distance": [800, 400, 1000, 850],
+                        "viagem_expressa_h": [13.0, 7.0, 18.0, np.nan]})          # D já é expressa
+    res = {"rotas_x_real": real, "simulador_malha_rotas": sim,
+           "simulador_malha_resumo": pd.DataFrame([{"mes": "2026-11-01"}])}
+    novo = expressa_pelo_real(res)
+    v = novo["simulador_malha_rotas"].set_index("Route")["viagem_expressa_h"]
+    assert v["A"] == 800 / 50                       # 600 a 900 km: 700 km em 14h = 50 km/h
+    assert v[["B", "C", "D"]].isna().all()          # abaixo de 600 km, faixa sem rotas suficientes, já expressa
+    assert novo["simulador_malha_resumo"].iloc[0]["expressa_velocidades"] == "600 a 900 km: 50 km/h"
+    assert expressa_pelo_real({**res, "rotas_x_real": real.iloc[:0]}) == {}   # sem real: fica a fórmula
+
+
+def test_calibracao():
+    """Real × meta por regra: média ponderada pelos pacotes; fila só com destino SOC."""
+    from malha.calculo.calibracao import calibracao
+    rx = pd.DataFrame({"mes": "2026-11-01", "rota": ["SOC-A>SOC-B", "SOC-A>SOC-C", "SOC-A>HUB-D"],
+                       "tipo": ["SOC-SOC", "SOC-SOC", "SOC-HUB"], "km": [800, 900, 200],
+                       "fonte_tempo": ["Expressa oficial", "Expressa oficial", "New TT"],
+                       "fonte_fila": ["Fila do próprio SOC", "Fila do próprio SOC", "Sem fila (regra)"],
+                       "real_pacotes": [100, 300, 50], "meta_viagem_h": [10, 20, 4], "real_estrada_h": [12, 24, 4],
+                       "meta_fila_h": [4, 4, 0], "real_fila_h": [6, 4, 9]})
+    c = calibracao(rx).set_index(["o que", "grupo"])
+    e = c.loc[("Viagem: de onde vem o tempo", "Expressa oficial")]
+    assert e["meta (h)"] == (10 * 100 + 20 * 300) / 400 and e["real (h)"] == (12 * 100 + 24 * 300) / 400
+    assert e["% rotas com real 10%+ acima"] == 100 and e["leitura"].startswith("Real acima")
+    assert c.loc[("Viagem: de onde vem o tempo", "New TT"), "leitura"] == "A regra acerta: real perto da meta."
+    f = c.loc[("Fila no SOC de destino: de onde vem a fila", "Fila do próprio SOC")]
+    assert f["real (h)"] == (6 * 100 + 4 * 300) / 400 and "Sem fila (regra)" not in c.loc["Fila no SOC de destino: de onde vem a fila"].index

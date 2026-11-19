@@ -9,7 +9,7 @@ A ferramenta pega **os caminhos que os pacotes fazem** (ex.: FMH → SOC São Pa
 **Jeito simples:** dois cliques em `RODAR.bat` (prepara os dados de `dados_reais`, calcula, confere e abre o Excel).
 
 **O que sai (pasta `saida`):**
-- `Rodagem de Malha AAAA-MM-DD.xlsx`: Leia-me, Resumo, Rodagem x Initiatives x Real (se houver `dados_reais/initiatives.csv`: aba Nov26-27 da Initiatives), Ponte do BWT (se houver o realizado da By Step), Onde atacar (se houver o realizado da By Step e o real por rota), Simulador de iniciativas (se houver a aba Nov26-27; com fórmulas: ligar e desligar cada iniciativa), Simulador de malha (com fórmulas: mudar a fila de um SOC, a viagem de uma rota ou virar a rota expressa e ver a meta de BWT mudar), Meta x Realizado (se houver o realizado da By Step), Meta By Step, Rotas, Rotas meta x real (se houver o real por rota: `consultas/lh_real_por_rota.sql`), Checagens
+- `Rodagem de Malha AAAA-MM-DD.xlsx`: Leia-me, Resumo, Rodagem x Initiatives x Real (se houver `dados_reais/initiatives.csv`: aba Nov26-27 da Initiatives), Ponte do BWT (se houver o realizado da By Step; mês em andamento e último mês fechado), Onde atacar (se houver o realizado da By Step e o real por rota), Regra x Real (se houver o real por rota: a meta erra sempre para o mesmo lado em algum tipo de rota ou regra? Só compara, não muda a meta), Simulador de iniciativas (se houver a aba Nov26-27; com fórmulas: ligar e desligar cada iniciativa), Simulador de malha (com fórmulas: mudar a fila de um SOC, a viagem de uma rota ou virar a rota expressa e ver a meta de BWT mudar), Meta x Realizado (se houver o realizado da By Step), Meta By Step, Rotas, Rotas meta x real (se houver o real por rota: `consultas/lh_real_por_rota.sql`), Checagens
 - `BWT por caminho - todos os meses.csv`: o detalhe de cada caminho
 - `planilha\*.csv`: para o botão **Rodagem → Atualizar resultado** da planilha de saída (ver `apps_script/COMO_INSTALAR.md`)
 
@@ -92,3 +92,11 @@ Toda parte nova é comparada com o processo atual, **com os mesmos dados**, colu
 3. `python -m malha comparar --dados dados_reais/pronto`.
 
 `dados_reais/` não vai para o GitHub (dados da empresa).
+
+## Acompanhar o mês (toda semana)
+As duas consultas pegam sozinhas **o mês atual até ontem**. Não precisa mudar data.
+1. No Data Studio (Presto), rode `consultas/lh_real_por_rota.sql` e salve o CSV (todos os resultados) como `dados_reais/lh_real_mes_atual.csv`.
+2. Rode `consultas/by_step_realizado.sql` e salve como `dados_reais/by_step_mes_atual.csv`.
+3. Dois cliques no `RODAR.bat`. Ele junta o mês atual no histórico (`lh_real_por_rota.csv` e `by_step_realizado.csv`) e gera o Excel.
+
+No Excel: **Ponte do BWT** (mês em andamento × meta, até o último dia com dado), **Onde atacar** e **Regra x Real**.

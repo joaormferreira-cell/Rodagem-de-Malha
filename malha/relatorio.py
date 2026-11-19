@@ -1,7 +1,7 @@
 """
 Excel único da rodagem, para quem vai usar o resultado (não precisa abrir código).
-Abas: Leia-me · Resumo · Rodagem x Initiatives x Real · Ponte do BWT · Onde atacar · Simulador de iniciativas ·
-Simulador de malha · Meta By Step · BWT por caminho ·
+Abas: Leia-me · Resumo · Rodagem x Initiatives x Real · Ponte do BWT · Onde atacar · Regra x Real ·
+Simulador de iniciativas · Simulador de malha · Meta By Step · BWT por caminho ·
 Rotas · Rotas meta x real · Checagens.
 """
 from datetime import datetime
@@ -20,18 +20,24 @@ ABAS = [
     ("Rodagem x Initiatives x Real", "Só se houver a aba Nov26-27 da Initiatives: para cada etapa (Brasil, BR - BR), "
                                      "meta da Rodagem | meta da Initiatives | realizado da By Step, lado a lado. "
                                      "O mês atual do realizado é parcial. Leia a coluna 'observação'."),
-    ("Ponte do BWT", "Só se houver o realizado da By Step: quanto cada etapa precisa cair (h no BWT) do real do último "
-                     "mês fechado até a meta. 'por tempo' = a etapa demora mais; 'por nº de pedidos' = passam mais "
-                     "pedidos por ela do que a malha prevê. As duas partes somam o 'a reduzir'."),
+    ("Ponte do BWT", "Só se houver o realizado da By Step: quanto cada etapa precisa cair (h no BWT) do real até a "
+                     "meta, em duas comparações (coluna 'comparação'): o mês em andamento (parcial, até o último dia "
+                     "com dado) e o último mês fechado. 'por tempo' = a etapa demora mais; 'por nº de pedidos' = "
+                     "passam mais pedidos por ela do que a malha prevê. As duas partes somam o 'a reduzir'."),
     ("Onde atacar", "Só se houver o tempo real por rota: as rotas (estrada) e os SOCs (fila de recebimento) que mais "
                     "puxam o BWT para cima. Efeito aproximado no BWT Brasil = horas acima da meta × pacotes ÷ pedidos "
                     "do mês. Não cobre o tempo dentro dos SOCs (não há realizado por SOC)."),
+    ("Regra x Real", "Só se houver o tempo real por rota: a meta erra sempre para o mesmo lado? Real × meta das "
+                     "rotas agrupado pela regra que deu o tempo (expressa oficial, New TT, fórmula por km...), pelo "
+                     "tipo de rota e pela distância. Só compara: não muda nenhum número da meta. Se um grupo inteiro "
+                     "está acima ou abaixo, é a regra que precisa de ajuste (decisão do time)."),
     ("Simulador de iniciativas", "Só se houver a aba Nov26-27 da Initiatives: BWT do SPX D2D no último mês de meta "
                                  "(Nov/27), ligando e desligando cada iniciativa (coluna amarela 'Ligada?', 1 ou 0). "
                                  "Mostra também quanto da meta oficial nenhuma iniciativa explica."),
     ("Simulador de malha", "Meta de BWT do mês da meta (Brasil, SPX D2D e FBS) mudando a fila de um SOC, a viagem de "
                            "uma rota ou virando a rota expressa (colunas amarelas). Efeito = horas mudadas × % dos "
-                           "pedidos que passam ali (dá o mesmo que rodar a ferramenta de novo)."),
+                           "pedidos que passam ali (dá o mesmo que rodar a ferramenta de novo). 'Virar expressa' usa "
+                           "a velocidade real das expressas oficiais de distância parecida."),
     ("Meta x Realizado", "Só se houver o realizado da By Step: meta, realizado e diferença (h) por etapa e recorte. "
                          "dif_h > 0 = realizado acima da meta."),
     ("Meta By Step", "Meta de cada etapa no formato da By Step (Brasil, BR - BR), com todas as linhas da By Step. "
@@ -250,11 +256,17 @@ def _escrever_simulador_malha(livro, resultados, titulo, negrito, cab):
 
     ws.write(lr - 2, 0, "Rotas (viagem = saiu → chegou). As que levam mais pedidos primeiro; use o filtro de 'Rota' "
                         "para achar uma rota.", negrito)
-    ws.write(lr - 1, 0, "'Virar expressa' usa a fórmula de expressa por km (troca de motorista, sem descanso longo). "
-                        "Se a rota entrar na planilha oficial de expressas, vale o tempo combinado de lá.")
+    if pd.notna(r.get("expressa_mes")):
+        ws.write(lr - 1, 0, f"'Virar expressa' usa a velocidade real das rotas da planilha oficial de expressas com "
+                            f"distância parecida ({_rotulo(r['expressa_mes'])}): {r['expressa_velocidades']}. Só para "
+                            f"rotas de 600 km ou mais: abaixo disso não há expressa no real para comparar. Se a rota "
+                            f"entrar na planilha oficial de expressas, a meta passa a ser o tempo combinado de lá.")
+    else:
+        ws.write(lr - 1, 0, "'Virar expressa' usa a fórmula de expressa por km (troca de motorista, sem descanso longo). "
+                            "Se a rota entrar na planilha oficial de expressas, vale o tempo combinado de lá.")
     cab_r = ["Rota", "Tipo", "km", "Hoje é expressa?", "De onde vem a viagem", "Pedidos/dia que passam",
              "% pedidos SPX D2D", "% pedidos FBS", "Viagem hoje (h)", "Fila no destino hoje (h)",
-             "Viagem pela fórmula de expressa (h)", "Nova viagem (h)", "Virar expressa? (1 = sim)", "Viagem simulada (h)",
+             "Viagem se virar expressa (h)", "Nova viagem (h)", "Virar expressa? (1 = sim)", "Viagem simulada (h)",
              "Efeito SPX D2D (h)", "Efeito FBS (h)"]
     for k, t in enumerate(rotas.itertuples(index=False)):
         lin = pr + k
@@ -298,7 +310,7 @@ def gerar_excel(resultados, arquivo):
     abas = {"Resumo": _resumo(caminhos)}
     if "tres_visoes" in resultados:
         abas["Rodagem x Initiatives x Real"] = resultados["tres_visoes"]
-    for chave, nome in [("ponte_bwt", "Ponte do BWT"), ("onde_atacar", "Onde atacar")]:
+    for chave, nome in [("ponte_bwt", "Ponte do BWT"), ("onde_atacar", "Onde atacar"), ("calibracao", "Regra x Real")]:
         if chave in resultados:
             abas[nome] = resultados[chave]
     if "simulador_resumo" in resultados:

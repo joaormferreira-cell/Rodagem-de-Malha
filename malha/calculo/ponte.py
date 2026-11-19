@@ -1,5 +1,6 @@
 """
-Ponte do BWT: de onde vem cada hora entre o REAL do último mês fechado e a META do mês seguinte (Brasil, BR - BR).
+Ponte do BWT: de onde vem cada hora entre o REAL e a META do mês da meta (Brasil, BR - BR).
+Duas comparações: o real do mês em andamento (parcial, se a By Step já tiver o mês) e o do último mês fechado.
 
 Aba "Ponte do BWT", por etapa da By Step:
   peso da etapa no BWT = horas da etapa × % dos pedidos que passam por ela   (= horas × pedidos ÷ pedidos do canal)
@@ -83,14 +84,29 @@ def meses_da_ponte(by_step_meta, real):
     return mes_meta, (antes[-1] if antes else None)
 
 
-def ponte_etapas(by_step_meta, realizado_bruto):
+def ponte_etapas(by_step_meta, realizado_bruto, ultimo_dia=None):
+    """Duas comparações com a meta do mês: o real do mês em andamento (parcial) e o do último mês fechado.
+    ultimo_dia: {mês: último dia com dado no realizado} (opcional, só para o rótulo)."""
     meta = by_step_meta.assign(bwt_n=pd.to_numeric(by_step_meta["bwt_n"]), bwt_d=pd.to_numeric(by_step_meta["bwt_d"]))
     real = preparar_realizado(realizado_bruto)
-    mes_meta, mes_real = meses_da_ponte(meta, real)
-    if mes_real is None:
-        return None
-    m, r = _rotulo(mes_meta), _rotulo(mes_real)
-    col_real, col_meta = f"Real {r} (h)", f"Meta {m} (h)"
+    mes_meta, mes_fechado = meses_da_ponte(meta, real)
+    m = _rotulo(mes_meta)
+    comparacoes = []
+    if mes_meta in set(real["attempt_month"]):
+        dia = (ultimo_dia or {}).get(mes_meta)
+        ate = f" até {pd.Timestamp(dia):%d/%m}" if dia else ""
+        comparacoes.append((mes_meta, f"{m}{ate}", f"Real {m}{ate} (mês em andamento) × Meta {m}"))
+    if mes_fechado is not None:
+        r = _rotulo(mes_fechado)
+        comparacoes.append((mes_fechado, r, f"Real {r} (último mês fechado) × Meta {m}"))
+    linhas = []
+    for mes_real, r, comparacao in comparacoes:
+        linhas += _ponte(meta, real, mes_meta, mes_real, m, r, comparacao)
+    return pd.DataFrame(linhas) if linhas else None
+
+
+def _ponte(meta, real, mes_meta, mes_real, m, r, comparacao):
+    col_real, col_meta = "Real (h)", "Meta (h)"
     linhas = []
     for canal in CANAIS:
         em, total_meta = _pesos(meta, mes_meta, canal)
@@ -106,8 +122,8 @@ def ponte_etapas(by_step_meta, realizado_bruto):
         com_meta = t.index.isin(em.index)
 
         def linha(etapa, real_h, meta_h, share_r, share_m, reduzir, tempo, pedidos, leitura, obs=""):
-            return {"canal": canal, "etapa (KPI By Step)": etapa, col_real: real_h, col_meta: meta_h,
-                    "% pedidos real": share_r, "% pedidos meta": share_m, "a reduzir no BWT (h)": reduzir,
+            return {"comparação": comparacao, "canal": canal, "etapa (KPI By Step)": etapa, col_real: real_h,
+                    col_meta: meta_h, "% pedidos real": share_r, "% pedidos meta": share_m, "a reduzir no BWT (h)": reduzir,
                     "por tempo (h)": tempo, "por nº de pedidos (h)": pedidos, "leitura": leitura, "observação": obs}
 
         dif = total_real - total_meta
@@ -126,7 +142,7 @@ def ponte_etapas(by_step_meta, realizado_bruto):
         if abs(resto) >= 0.05:
             linhas.append(linha("Resto (pedidos que não fecham por etapa)", np.nan, np.nan, np.nan, np.nan, resto,
                                 np.nan, np.nan, "Diferença entre o total e a soma das etapas."))
-    return pd.DataFrame(linhas) if linhas else None
+    return linhas
 
 
 def onde_atacar(rotas_x_real, realizado_bruto, top=TOP):

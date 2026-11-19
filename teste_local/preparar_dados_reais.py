@@ -4,7 +4,11 @@ Monta a pasta de dados reais no mesmo formato de dados_exemplo, a partir de:
   dados_reais/0.0 Distances Available.csv  (aba de distâncias, baixada como CSV)
   dados_reais/demanda_bwt.csv              (export da tabela dev_brbi_opslgc.joao_malha_demanda_bwt)
   dados_reais/station_names.csv            (export da tabela dev_brbi_opslgc.joao_malha_station_names)
-  dados_reais/lh_real_por_rota.csv         (opcional: resultado de consultas/lh_real_por_rota.sql)
+  dados_reais/lh_real_por_rota.csv         (opcional: histórico do tempo real por rota)
+  dados_reais/by_step_realizado.csv        (opcional: histórico do realizado da By Step)
+  dados_reais/lh_real_mes_atual.csv        (opcional: resultado de consultas/lh_real_por_rota.sql)
+  dados_reais/by_step_mes_atual.csv        (opcional: resultado de consultas/by_step_realizado.sql)
+      → os dois "mes_atual" entram no histórico no lugar do mesmo mês (o histórico é regravado)
   dados_reais/initiatives.csv              (opcional: aba Nov26-27 da planilha Initiatives BWT, baixada como CSV)
 Saída: dados_reais/pronto/  → usar com  python -m malha rodar --dados dados_reais/pronto
 
@@ -34,7 +38,23 @@ def salvar_grade(df, arquivo):
         csv.writer(f).writerows(df.fillna("").astype(str).values.tolist())
 
 
+def juntar_mes_atual(historico, mes_atual, coluna_mes):
+    """Põe no histórico o mês que veio na consulta do mês atual, no lugar do mesmo mês (e regrava o histórico)."""
+    if not mes_atual.exists():
+        return
+    novo = pd.read_csv(mes_atual, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+    meses = pd.to_datetime(novo[coluna_mes]).dt.strftime("%Y-%m")
+    if historico.exists():
+        antigo = pd.read_csv(historico, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+        antigo = antigo[~pd.to_datetime(antigo[coluna_mes]).dt.strftime("%Y-%m").isin(set(meses))]
+        novo = pd.concat([antigo, novo], ignore_index=True).fillna("")
+    novo.to_csv(historico, index=False)
+    print(f"  {mes_atual.name}: mês {', '.join(sorted(set(meses)))} atualizado em {historico.name}")
+
+
 def main():
+    juntar_mes_atual(ORIGEM / "by_step_realizado.csv", ORIGEM / "by_step_mes_atual.csv", "attempt_month")
+    juntar_mes_atual(ORIGEM / "lh_real_por_rota.csv", ORIGEM / "lh_real_mes_atual.csv", "mes")
     excel = pd.read_excel(ORIGEM / "Inputs Rodagem.xlsx", sheet_name=None, header=None, dtype=str)
     faltando = []
     for modelo in sorted(MODELO.glob("*/*.csv")):

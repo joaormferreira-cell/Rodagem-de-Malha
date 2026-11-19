@@ -1,8 +1,9 @@
 -- Tempo REAL de estrada por rota, para a aba "Rotas meta x real" da Rodagem de Malha.
 -- Rodar no Data Studio (https://datasuite.shopee.io/studio), motor Presto.
--- >>> MUDE SÓ AS DUAS DATAS da linha marcada "PERÍODO" (de preferência o mês inteiro que quer comparar).
---     Se demorar demais, use uma semana.
--- Depois: baixar o resultado em CSV e salvar como  dados_reais\lh_real_por_rota.csv
+-- Pega sozinha o MÊS ATUAL, do dia 1 até ontem (linha "PERÍODO"). Não precisa mudar nada.
+--     Para outro período, troque a linha PERÍODO por datas fixas, ex.: between date '2026-10-01' and date '2026-10-31'
+-- Depois: baixar o resultado em CSV (todos os resultados) e salvar como  dados_reais\lh_real_mes_atual.csv
+--     (o RODAR.bat junta esse mês no histórico dados_reais\lh_real_por_rota.csv)
 --
 -- Regra igual à do By Step:
 --   começa quando o pacote SAI da estação anterior;
@@ -25,7 +26,8 @@ trechos as (
          min(try_cast(previous_lharrived_datetime as timestamp)) as chegou_b,
          min(try_cast(received_datetime as timestamp)) as recebido_b
   from brbi_opslgc.da_log_spx_leadtime_all_miles_by_shipment_daily
-  where grass_date between date '2026-10-01' and date '2026-10-31'   -- PERÍODO
+  where grass_date between date_trunc('month', current_date - interval '1' day)
+                       and current_date - interval '1' day   -- PERÍODO: mês atual até ontem
     and previous_station_id is not null
   group by 1, 2
 ),

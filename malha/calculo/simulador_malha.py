@@ -6,6 +6,9 @@ O BWT de um caminho é a soma das etapas, e cada viagem entra com o tempo total 
 Mudar o tempo de uma rota em X horas muda o BWT do canal em X × (pedidos/dia que passam pela rota ÷ pedidos/dia
 do canal). Esse peso sai do próprio cálculo do BWT (as mesmas funções de bwt.py): o tempo de cada rota é trocado
 por um código, e cada etapa de viagem do caminho mostra qual rota usou.
+
+'Virar expressa': com o tempo real por rota, usa a velocidade real das expressas oficiais de distância parecida
+(expressa_pelo_real); sem ele, a fórmula de expressa por km.
 """
 import numpy as np
 import pandas as pd
@@ -19,6 +22,9 @@ CODIGO = 1e7   # tempo falso de cada rota = CODIGO + nº da rota (o cálculo por
 FONTES_COM_FILA = ["Fila do próprio SOC", "Média dos SOCs (SOC sem fila própria)", "Fora de SOC (valor padrão)"]
 FORA_DE_SOC = "Destinos fora de SOC (valor padrão)"
 SEM_FILA_PROPRIA = ["Air LH", "Valor fixo"]   # tempo total fixo: a "viagem" é o tempo todo
+# 'Virar expressa': velocidade real das expressas oficiais por faixa de km (abaixo de 600 km não há expressa oficial)
+FAIXAS_EXPRESSA = [600, 900, 1200, 1600, 2000, 2500, np.inf]
+MIN_ROTAS_FAIXA = 10
 
 
 def _num(s):
@@ -93,6 +99,49 @@ def simular_malha(resultados, metas):
     resumo = pd.DataFrame([{"mes": periodo, "bwt_spx_h": bwt["spx"], "bwt_fbs_h": bwt["fbs"],
                             "pedidos_spx": total["spx"], "pedidos_fbs": total["fbs"]}])
     return {"simulador_malha_resumo": resumo, "simulador_malha_filas": filas, "simulador_malha_rotas": tabela_rotas}
+
+
+def _faixa(i):
+    de, ate = FAIXAS_EXPRESSA[i], FAIXAS_EXPRESSA[i + 1]
+    fmt = lambda x: f"{x:,.0f}".replace(",", ".")
+    return f"mais de {fmt(de)} km" if np.isinf(ate) else f"{fmt(de)} a {fmt(ate)} km"
+
+
+def velocidades_expressas(rotas_x_real):
+    """Velocidade real (km/h) das rotas da planilha oficial de expressas, por faixa de km, no último mês com real.
+    Só as faixas com pelo menos MIN_ROTAS_FAIXA rotas. Devolve (mês, {nº da faixa: km/h})."""
+    r = rotas_x_real[rotas_x_real["fonte_tempo"] == "Expressa oficial"]
+    km, h, pac = _num(r["km"]), _num(r["real_estrada_h"]), _num(r["real_pacotes"])
+    ok = (km > 0) & (h > 0) & (pac > 0)
+    if not ok.any():
+        return None, {}
+    mes = r.loc[ok, "mes"].max()
+    ok &= r["mes"] == mes
+    d = pd.DataFrame({"faixa": pd.cut(km[ok], FAIXAS_EXPRESSA, right=False, labels=False),
+                      "km_x": (km * pac)[ok], "h_x": (h * pac)[ok]})
+    g = d.groupby("faixa").agg(rotas=("km_x", "size"), km_x=("km_x", "sum"), h_x=("h_x", "sum"))
+    g = g[g["rotas"] >= MIN_ROTAS_FAIXA]
+    return mes, {int(i): v for i, v in (g["km_x"] / g["h_x"]).items()}
+
+
+def expressa_pelo_real(resultados):
+    """
+    'Virar expressa' no simulador com a velocidade REAL das expressas oficiais de distância parecida, no lugar da
+    fórmula de expressa (que no real se mostrou otimista). Sem expressa real naquela distância, a rota fica sem a opção.
+    Precisa do tempo real por rota (rotas_x_real); sem ele, o simulador continua com a fórmula.
+    """
+    if "simulador_malha_rotas" not in resultados or "rotas_x_real" not in resultados:
+        return {}
+    mes, vel = velocidades_expressas(resultados["rotas_x_real"])
+    if not vel:
+        return {}
+    t = resultados["simulador_malha_rotas"].copy()
+    km = _num(t["Distance"])
+    v = pd.cut(km, FAIXAS_EXPRESSA, right=False, labels=False).map(vel)
+    t["viagem_expressa_h"] = np.where(t["viagem_expressa_h"].notna() & v.notna(), km / v, np.nan)
+    resumo = resultados["simulador_malha_resumo"].assign(
+        expressa_mes=mes, expressa_velocidades="; ".join(f"{_faixa(i)}: {x:.0f} km/h" for i, x in vel.items()))
+    return {"simulador_malha_rotas": t, "simulador_malha_resumo": resumo}
 
 
 def efeito(sim, novas_viagens=None, novas_filas=None):

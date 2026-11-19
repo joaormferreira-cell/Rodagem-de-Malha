@@ -13,7 +13,8 @@ from .calculo.rotas_x_real import comparar_rotas
 from .calculo.initiatives import tres_visoes
 from .calculo.ponte import onde_atacar, ponte_etapas
 from .calculo.simulador import ler_simulador
-from .calculo.simulador_malha import simular_malha
+from .calculo.simulador_malha import expressa_pelo_real, simular_malha
+from .calculo.calibracao import calibracao
 from .checagens import checar_inputs, checar_resultados
 from .gravar import exportar_para_botao
 from .relatorio import gerar_excel
@@ -87,9 +88,14 @@ def rodar(pasta_dados, pasta_saida):
     resultados = calcular(entradas)
     resultados.update(simular_malha(resultados, entradas["metas"]))   # simulador de malha (aba com fórmulas)
     realizado = Path(pasta_dados) / "by_step" / "realizado.csv"
-    bruto = None
+    bruto, ultimo_dia = None, {}
     if realizado.exists():   # opcional: compara a meta com o realizado da By Step
         bruto = pd.read_csv(realizado, dtype={"bwt_n": float, "bwt_d": float})
+        if "ultimo_dia" in bruto.columns:   # vem da consulta do mês atual: até que dia o mês tem dado
+            dias = bruto.dropna(subset=["ultimo_dia"])
+            mes = pd.to_datetime(dias["attempt_month"]).dt.strftime("%Y-%m-%d")
+            ultimo_dia = dias.groupby(mes)["ultimo_dia"].max().to_dict()
+            bruto = bruto.drop(columns="ultimo_dia")
         resultados["meta_x_realizado"] = comparar_meta_real(resultados["by_step_meta"], bruto)
     initiatives = Path(pasta_dados) / "initiatives" / "initiatives.csv"
     if initiatives.exists():   # opcional: meta da Initiatives (aba Nov26-27) para as 3 visões por etapa
@@ -105,8 +111,12 @@ def rodar(pasta_dados, pasta_saida):
     lh_real = Path(pasta_dados) / "lh_real" / "realizado_rotas.csv"
     if lh_real.exists():   # opcional: tempo real de estrada por rota (consultas/lh_real_por_rota.sql)
         resultados["rotas_x_real"] = comparar_rotas(resultados["rotas"], pd.read_csv(lh_real, encoding="utf-8-sig"))
-    if bruto is not None:   # ponte: real do último mês fechado × meta; e onde atacar, se houver o real por rota
-        ponte = ponte_etapas(resultados["by_step_meta"], bruto)
+        calib = calibracao(resultados["rotas_x_real"])
+        if calib is not None:
+            resultados["calibracao"] = calib
+        resultados.update(expressa_pelo_real(resultados))   # 'virar expressa' do simulador com a velocidade real
+    if bruto is not None:   # ponte: real do mês em andamento e do último mês fechado × meta; e onde atacar
+        ponte = ponte_etapas(resultados["by_step_meta"], bruto, ultimo_dia)
         if ponte is not None:
             resultados["ponte_bwt"] = ponte
         if "rotas_x_real" in resultados:
