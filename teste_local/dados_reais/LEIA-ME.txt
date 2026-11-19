@@ -1,7 +1,0 @@
-Coloque aqui os CSV baixados das planilhas reais.
-
-Regra: cada planilha tem a sua pasta, e cada aba vira um arquivo com o NOME EXATO DA ABA + ".csv".
-Exemplo: aba "Implemented routes" da planilha 197nob... -> expressas_197nob\Implemented routes.csv
-
-A pasta dados_exemplo mostra todos os arquivos que cada etapa precisa, já com os nomes certos.
-Estes arquivos ficam só no seu computador: não vão para o GitHub.

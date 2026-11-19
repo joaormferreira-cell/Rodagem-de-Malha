@@ -5,6 +5,22 @@ Guia em linguagem simples, para entender e explicar a ferramenta sem ler código
 ## Em uma frase
 A ferramenta pega **os caminhos que os pacotes fazem** (ex.: FMH → SOC São Paulo → SOC Rio → HUB Rio), calcula **quanto tempo cada trecho leva** e, no fim, **o prazo total de entrega** (BWT).
 
+## O que tem na pasta
+| O quê | Para que serve |
+|---|---|
+| `RODAR.bat` | **O que você usa no dia a dia:** dois cliques e sai o Excel. |
+| `dados_reais/` | Os dados que você baixa (Inputs Rodagem, distâncias, demanda, estações, realizado da By Step, real por rota, Initiatives). `pronto/` é montada sozinha a cada rodada. Só no seu PC. |
+| `saida/` | O resultado: `Rodagem de Malha AAAA-MM-DD.xlsx` + arquivos de apoio (são refeitos a cada rodada). |
+| `consultas/` | As 2 consultas do Data Studio da rotina semanal. |
+| `malha/` | **A ferramenta nova** (Rodagem 2.0): o cálculo, as checagens e o Excel. |
+| `network_input_to_bwt_generation.py`, `outobund_by_soc_tt_by_routes.py`, `outobund_by_soc_tt_by_routes_manual_express.py`, `bwt_calculator.py` | **O software antigo** (do Jards), passos 1 a 4. Ainda é o oficial; gravam no Sheets/Hive. |
+| `connection_with_path.py`, `hive_lib.py`, `transit_time_lib.py`, `manual_express_lib.py`, `station_geo_lib.py` | Peças usadas pelo software antigo. |
+| `apps_script/` | Botão **Rodagem → Atualizar resultado** da planilha de saída (ver `COMO_INSTALAR.md`). |
+| `teste_local/` | `preparar_dados_reais.py` (o RODAR.bat usa), dados de exemplo e o simulador que roda o software antigo sem internet para comparar. |
+| `tests/` | Testes automáticos. |
+| `COMO_FUNCIONA.md` (este), `MAPA.md`, `CLAUDE.md` | Guia simples · mapa técnico do software antigo · instruções para o Claude. |
+| `__pycache__/`, `.pytest_cache/` | O Python cria sozinho. Pode ignorar. |
+
 ## Como rodar
 **Jeito simples:** dois cliques em `RODAR.bat` (prepara os dados de `dados_reais`, calcula, confere e abre o Excel).
 
