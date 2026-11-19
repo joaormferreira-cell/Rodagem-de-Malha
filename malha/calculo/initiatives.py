@@ -72,16 +72,22 @@ def _rotulo(mes):
     return f"{_MESES_PT[d.month - 1]}/{d:%y}"
 
 
-def ler_initiatives(grade):
-    """Grade da aba Nov26-27 → tabela longa: etapa | kpis | canal | mes | tipo (Actuals/Target) | share | horas."""
-    g = grade.fillna("").astype(str)
+def cabecalho(g):
+    """Linha do cabeçalho (Leg | Status) e colunas de mês: [(coluna da hora, coluna do share, mês, Actuals/Target)]."""
     cab = next(i for i in range(len(g)) if _limpo(g.iat[i, 2]) == "leg" and _limpo(g.iat[i, 3]) == "status")
-    colunas = []   # (coluna da hora, coluna do share, mês, tipo)
+    colunas = []
     for j in range(4, g.shape[1]):
         if _limpo(g.iat[cab - 2, j]) != "lt" or not re.match(r"^[A-Za-z]{3}/\d{2}$", g.iat[cab, j].strip()):
             continue
         mes = pd.to_datetime("01/" + g.iat[cab, j].strip(), format="%d/%b/%y").strftime("%Y-%m-%d")
         colunas.append((j, j - 1, mes, g.iat[cab - 1, j].strip()))
+    return cab, colunas
+
+
+def ler_initiatives(grade):
+    """Grade da aba Nov26-27 → tabela longa: etapa | kpis | canal | mes | tipo (Actuals/Target) | share | horas."""
+    g = grade.fillna("").astype(str)
+    cab, colunas = cabecalho(g)
     etapas = {_limpo(nome): (nome, kpis) for nome, kpis, _ in DE_PARA}
     totais = {_limpo(chave): (canal, nome) for chave, canal, nome in TOTAIS}
     linhas = []

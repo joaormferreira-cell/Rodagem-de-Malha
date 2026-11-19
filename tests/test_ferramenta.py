@@ -220,3 +220,31 @@ def test_ponte_do_bwt():
     assert a.loc["SOC-C", "efeito no BWT Brasil (h)"] == 4 * 1000 / 100    # fila 8h × meta 4h
     assert a.loc["SOC-A>HUB-B", "efeito no BWT Brasil (h)"] == 4 * 1000 / 100
     assert "SOC-A>HUB-B-X" not in a.index
+
+
+def test_simulador_de_iniciativas():
+    """Ponte real → meta fecha; todas ligadas = soma das etapas da meta; desligar devolve o impacto × % de pedidos."""
+    from malha.calculo.simulador import bwt_simulado, ler_simulador
+    soc1 = "SOC1 Received to SoC Packed (With Transshipment)"
+    grade = pd.DataFrame([
+        ["", "", "", "", "Share", "LT", "Share", "LT", "Share", "LT", "", ""],
+        ["", "", "", "", "Actuals", "Actuals", "Target", "Target", "Target", "Target", "", ""],
+        ["", "Key", "Leg", "Status", "Oct/26", "Oct/26", "Nov/26", "Nov/26", "Nov/27", "Nov/27", "Owner", "Saving rationale"],
+        ["", "", "   (-) SPX D2D", "-", "85%", "1.00", "81%", "0.95", "80%", "0.90", "", ""],
+        ["", "", "SPX D2D", "", "", "", "", "", "", "", "", ""],
+        ["", "", "Seller", "APT (Paid to Pickup or Dropoff)", "100%", "20.00", "100%", "20.50", "100%", "19.50", "Ana", ""],
+        ["", "", "Seller", "Feriados (Impactos de feriados)", "-", "-", "-", "0.50", "-", "0.00", "Ana", ""],
+        ["", "", "Seller", "Iniciativa A", "-", "-", "-", "0.00", "-", "-1.00", "Ana", "porque sim"],
+        ["", "", "Seller", "Sem impacto", "-", "-", "-", "0.00", "-", "0.00", "Ana", ""],
+        ["", "", "1st SOC", soc1, "50%", "8.00", "50%", "8.00", "60%", "7.00", "", ""],
+        ["", "", "SOC", "Iniciativa B", "-", "-", "-", "-0.50", "-", "-0.50", "", ""],
+    ])
+    s = ler_simulador(grade)
+    r, ini = s["resumo"], s["iniciativas"].set_index("iniciativa")
+    assert list(ini.index) == ["Feriados (Impactos de feriados)", "Iniciativa A", "Iniciativa B"]   # sem a linha zerada
+    assert r["total_b_h"] == 0.90 * 24 and r["soma_real_h"] == 20 + 0.5 * 8
+    assert abs(r["soma_real_h"] + r["mix_h"] + r["iniciativas_h"] + r["ajustes_h"] - r["soma_b_h"]) < 1e-9
+    assert abs(r["soma_b_h"] - (19.5 + 0.6 * 7)) < 1e-9
+    assert ini.loc["Iniciativa B", "impacto_bwt_h"] == -1.0 * 0.6          # (−0,5 −0,5) × 60%
+    assert "feriados" in ini.loc["Feriados (Impactos de feriados)", "observacao"]
+    assert abs(bwt_simulado(s, [s["iniciativas"].index[2]]) - (r["soma_b_h"] + 0.6)) < 1e-9

@@ -12,6 +12,7 @@ from .calculo.meta_x_real import comparar as comparar_meta_real
 from .calculo.rotas_x_real import comparar_rotas
 from .calculo.initiatives import tres_visoes
 from .calculo.ponte import onde_atacar, ponte_etapas
+from .calculo.simulador import ler_simulador
 from .checagens import checar_inputs, checar_resultados
 from .gravar import exportar_para_botao
 from .relatorio import gerar_excel
@@ -94,6 +95,11 @@ def rodar(pasta_dados, pasta_saida):
         visoes = tres_visoes(resultados["by_step_meta"], grade, bruto)
         if visoes is not None:
             resultados["tres_visoes"] = visoes
+        sim = ler_simulador(grade)
+        if sim is not None:   # simulador de iniciativas (aba com fórmulas no Excel)
+            resultados["simulador_resumo"] = pd.DataFrame([sim["resumo"]])
+            resultados["simulador_etapas"] = sim["etapas"]
+            resultados["simulador_iniciativas"] = sim["iniciativas"]
     lh_real = Path(pasta_dados) / "lh_real" / "realizado_rotas.csv"
     if lh_real.exists():   # opcional: tempo real de estrada por rota (consultas/lh_real_por_rota.sql)
         resultados["rotas_x_real"] = comparar_rotas(resultados["rotas"], pd.read_csv(lh_real, encoding="utf-8-sig"))
