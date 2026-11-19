@@ -248,3 +248,41 @@ def test_simulador_de_iniciativas():
     assert ini.loc["Iniciativa B", "impacto_bwt_h"] == -1.0 * 0.6          # (−0,5 −0,5) × 60%
     assert "feriados" in ini.loc["Feriados (Impactos de feriados)", "observacao"]
     assert abs(bwt_simulado(s, [s["iniciativas"].index[2]]) - (r["soma_b_h"] + 0.6)) < 1e-9
+
+
+def test_simulador_de_malha():
+    """Mudar a viagem de uma rota ou a fila de um SOC no simulador dá o mesmo que recalcular o BWT inteiro."""
+    from malha.calculo.bwt import calcular_bwt
+    from malha.calculo.simulador_malha import FONTES_COM_FILA, FORA_DE_SOC, efeito, simular_malha
+    from malha.pipeline import ler_inputs
+    entradas = ler_inputs(RAIZ / "teste_local" / "dados_exemplo")
+    with redirect_stdout(io.StringIO()):
+        res = calcular(entradas)
+    sim = simular_malha(res, entradas["metas"])
+    mes = sim["simulador_malha_resumo"].iloc[0]["mes"]
+    na_rota = res["rotas"]["period_start"].astype(str).str[:10] == mes
+
+    def bwt(rotas):
+        with redirect_stdout(io.StringIO()):
+            b = calcular_bwt(res["malha"], rotas, entradas["metas"], entradas["estacoes_subregiao"],
+                             entradas["spx_info"], entradas["estacoes_estado"])["bwt_caminhos"]
+        b = b[b["period_start"].astype(str).str[:10] == mes]
+        fbs, h, a = pd.to_numeric(b["fbs_flag"]) == 1, b["bwt_total_hours"], b["ADO"]
+        return {k: (h * a)[m].sum() / a[m].sum() for k, m in [("spx", ~fbs), ("fbs", fbs)]}
+
+    base = bwt(res["rotas"])
+    assert abs(base["spx"] - sim["simulador_malha_resumo"].iloc[0]["bwt_spx_h"]) < 1e-9
+    casos = [(res["rotas"]["Route"] == r, {"novas_viagens": {r: v + 5}})
+             for r, v in sim["simulador_malha_rotas"][["Route", "viagem_h"]].itertuples(index=False)]
+    for destino, fila in sim["simulador_malha_filas"][["destino", "fila_h"]].itertuples(index=False):
+        fora = res["rotas"]["fonte_fila"] == "Fora de SOC (valor padrão)"
+        alvo = res["rotas"]["fonte_fila"].isin(FONTES_COM_FILA) & (fora if destino == FORA_DE_SOC else
+                                                                   (res["rotas"]["Dest"] == destino) & ~fora)
+        casos.append((alvo, {"novas_filas": {destino: fila + 5}}))
+    assert len(casos) > 10
+    for alvo, mudanca in casos:
+        rotas = res["rotas"].copy()
+        rotas.loc[na_rota & alvo, "TTFinal"] = pd.to_numeric(rotas.loc[na_rota & alvo, "TTFinal"]) + 5
+        novo, previsto = bwt(rotas), efeito(sim, **mudanca)
+        for k in previsto:
+            assert abs((novo[k] - base[k]) - previsto[k]) < 1e-9, (mudanca, k)

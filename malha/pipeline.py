@@ -13,6 +13,7 @@ from .calculo.rotas_x_real import comparar_rotas
 from .calculo.initiatives import tres_visoes
 from .calculo.ponte import onde_atacar, ponte_etapas
 from .calculo.simulador import ler_simulador
+from .calculo.simulador_malha import simular_malha
 from .checagens import checar_inputs, checar_resultados
 from .gravar import exportar_para_botao
 from .relatorio import gerar_excel
@@ -84,6 +85,7 @@ def rodar(pasta_dados, pasta_saida):
         salvar({"checagens": rel.tabela()}, pasta_saida)
         raise SystemExit(f"\nRodagem interrompida: corrija os ERROS acima (lista em {Path(pasta_saida) / 'checagens.xlsx'}).")
     resultados = calcular(entradas)
+    resultados.update(simular_malha(resultados, entradas["metas"]))   # simulador de malha (aba com fórmulas)
     realizado = Path(pasta_dados) / "by_step" / "realizado.csv"
     bruto = None
     if realizado.exists():   # opcional: compara a meta com o realizado da By Step

@@ -1,7 +1,7 @@
 """
 Excel único da rodagem, para quem vai usar o resultado (não precisa abrir código).
 Abas: Leia-me · Resumo · Rodagem x Initiatives x Real · Ponte do BWT · Onde atacar · Simulador de iniciativas ·
-Meta By Step · BWT por caminho ·
+Simulador de malha · Meta By Step · BWT por caminho ·
 Rotas · Rotas meta x real · Checagens.
 """
 from datetime import datetime
@@ -11,6 +11,7 @@ import pandas as pd
 
 from .calculo.bwt import COLUNAS_SAIDA as COLUNAS_BWT
 from .calculo.by_step import ETAPAS_BY_STEP, observacao, ordem_by_step
+from .calculo.initiatives import _rotulo
 from .calculo.rotas_x_real import resumo as resumo_rotas
 from .calculo.simulador import rotulos as rotulos_simulador
 
@@ -28,6 +29,9 @@ ABAS = [
     ("Simulador de iniciativas", "Só se houver a aba Nov26-27 da Initiatives: BWT do SPX D2D no último mês de meta "
                                  "(Nov/27), ligando e desligando cada iniciativa (coluna amarela 'Ligada?', 1 ou 0). "
                                  "Mostra também quanto da meta oficial nenhuma iniciativa explica."),
+    ("Simulador de malha", "Meta de BWT do mês da meta (Brasil, SPX D2D e FBS) mudando a fila de um SOC, a viagem de "
+                           "uma rota ou virando a rota expressa (colunas amarelas). Efeito = horas mudadas × % dos "
+                           "pedidos que passam ali (dá o mesmo que rodar a ferramenta de novo)."),
     ("Meta x Realizado", "Só se houver o realizado da By Step: meta, realizado e diferença (h) por etapa e recorte. "
                          "dif_h > 0 = realizado acima da meta."),
     ("Meta By Step", "Meta de cada etapa no formato da By Step (Brasil, BR - BR), com todas as linhas da By Step. "
@@ -180,6 +184,112 @@ def _escrever_simulador(livro, resultados, titulo, negrito, cab):
     ws.set_column(12, 12, 70)
 
 
+def _escrever_simulador_malha(livro, resultados, titulo, negrito, cab):
+    """Aba com fórmulas: nova fila, nova viagem ou 'Virar expressa?' (colunas amarelas) recalculam a meta de BWT."""
+    from xlsxwriter.utility import xl_range, xl_rowcol_to_cell as celula
+    r = resultados["simulador_malha_resumo"].iloc[0]
+    filas, rotas = resultados["simulador_malha_filas"], resultados["simulador_malha_rotas"]
+    ws = livro.add_worksheet("Simulador de malha")
+    h2 = livro.add_format({"num_format": "0.00"})
+    h2_negrito = livro.add_format({"num_format": "0.00", "bold": True})
+    pct = livro.add_format({"num_format": "0.0%"})
+    milhar = livro.add_format({"num_format": "#,##0"})
+    entrada = livro.add_format({"bg_color": "#FFF2CC", "font_color": "#0000FF", "bold": True, "num_format": "0.00"})
+
+    ws.write(0, 0, f"Simulador de malha: meta de BWT de {_rotulo(r['mes'])} (Brasil)", titulo)
+    ws.write(1, 0, "Como usar: digite só nas colunas amarelas. Filas: a nova fila do SOC (h). Rotas: a nova viagem (h) "
+                   "ou 1 em 'Virar expressa?'. O quadro abaixo recalcula sozinho. Para voltar, apague o que digitou.")
+    ws.write(2, 0, "Como funciona: mudar o tempo de uma rota em X horas muda a meta de BWT em X × % dos pedidos que "
+                   "passam por ela. A nova fila vale para todas as rotas que chegam no SOC (menos as sem fila pela regra).")
+    ws.write(3, 0, "É uma simulação da META: a meta oficial só muda quando muda a planilha de origem (expressas, New TT, "
+                   "fila dos SOCs) e a ferramenta roda de novo.")
+
+    lf = 13                                   # cabeçalho da tabela de filas
+    pf, uf = lf + 1, lf + len(filas)
+    lr = uf + 4                               # cabeçalho da tabela de rotas
+    pr, ur = lr + 1, lr + len(rotas)
+
+    ws.write_row(5, 0, ["", "SPX D2D", "Fulfillment (FBS)"], cab)
+    quadro = [("Meta de BWT hoje (h)", [r["bwt_spx_h"], r["bwt_fbs_h"]], None),
+              ("Efeito das filas que você mudou (h)", [0, 0], [xl_range(pf, 7, uf, 7), xl_range(pf, 8, uf, 8)]),
+              ("Efeito das rotas que você mudou (h)", [0, 0], [xl_range(pr, 14, ur, 14), xl_range(pr, 15, ur, 15)])]
+    for k, (rotulo, valores, somas) in enumerate(quadro):
+        ws.write(6 + k, 0, rotulo)
+        for j, valor in enumerate(valores):
+            if somas:
+                ws.write_formula(6 + k, 1 + j, f"=SUM({somas[j]})", h2, 0)
+            elif pd.notna(valor):
+                ws.write_number(6 + k, 1 + j, valor, h2)
+    ws.write(9, 0, "Meta de BWT simulada (h)", negrito)
+    ws.write(10, 0, "Diferença (h) (negativo = BWT menor)", negrito)
+    for j, valor in enumerate([r["bwt_spx_h"], r["bwt_fbs_h"]]):
+        if pd.notna(valor):
+            ws.write_formula(9, 1 + j, f"=SUM({xl_range(6, 1 + j, 8, 1 + j)})", h2_negrito, valor)
+            ws.write_formula(10, 1 + j, f"={celula(9, 1 + j)}-{celula(6, 1 + j)}", h2_negrito, 0)
+
+    ws.write(lf - 1, 0, "Filas nos SOCs de destino (chegou → recebido). 'Destinos fora de SOC' = premissa única de fila.",
+             negrito)
+    cab_f = ["SOC de destino", "De onde vem a fila", "Rotas que chegam com fila", "% pedidos SPX D2D", "% pedidos FBS",
+             "Fila hoje (h)", "Nova fila (h)", "Efeito SPX D2D (h)", "Efeito FBS (h)"]
+    for k, f in enumerate(filas.itertuples(index=False)):
+        lin = pf + k
+        ws.write_row(lin, 0, [f.destino, f.fonte_fila])
+        ws.write_number(lin, 2, f.rotas)
+        ws.write_number(lin, 3, f.peso_spx, pct)
+        ws.write_number(lin, 4, f.peso_fbs, pct)
+        ws.write_number(lin, 5, f.fila_h, h2)
+        ws.write_blank(lin, 6, None, entrada)
+        nova, hoje = celula(lin, 6), celula(lin, 5)
+        for j, peso in [(7, celula(lin, 3)), (8, celula(lin, 4))]:
+            ws.write_formula(lin, j, f'=IF({nova}="",0,({nova}-{hoje})*{peso})', h2, 0)
+    if len(filas):
+        ws.add_table(lf, 0, uf, len(cab_f) - 1, {"columns": [{"header": h, "header_format": cab} for h in cab_f],
+                                                 "style": "Table Style Light 1", "name": "TabelaFilas"})
+        ws.data_validation(pf, 6, uf, 6, {"validate": "decimal", "criteria": ">=", "value": 0,
+                                          "error_message": "Digite a fila em horas (0 ou mais)."})
+
+    ws.write(lr - 2, 0, "Rotas (viagem = saiu → chegou). As que levam mais pedidos primeiro; use o filtro de 'Rota' "
+                        "para achar uma rota.", negrito)
+    ws.write(lr - 1, 0, "'Virar expressa' usa a fórmula de expressa por km (troca de motorista, sem descanso longo). "
+                        "Se a rota entrar na planilha oficial de expressas, vale o tempo combinado de lá.")
+    cab_r = ["Rota", "Tipo", "km", "Hoje é expressa?", "De onde vem a viagem", "Pedidos/dia que passam",
+             "% pedidos SPX D2D", "% pedidos FBS", "Viagem hoje (h)", "Fila no destino hoje (h)",
+             "Viagem pela fórmula de expressa (h)", "Nova viagem (h)", "Virar expressa? (1 = sim)", "Viagem simulada (h)",
+             "Efeito SPX D2D (h)", "Efeito FBS (h)"]
+    for k, t in enumerate(rotas.itertuples(index=False)):
+        lin = pr + k
+        ws.write_row(lin, 0, [t.Route, t.route_type])
+        if pd.notna(t.Distance):
+            ws.write_number(lin, 2, float(t.Distance), milhar)
+        ws.write_row(lin, 3, [t.expressa, t.fonte_tt])
+        ws.write_number(lin, 5, t.pedidos_dia, milhar)
+        ws.write_number(lin, 6, t.peso_spx, pct)
+        ws.write_number(lin, 7, t.peso_fbs, pct)
+        for j, v in [(8, t.viagem_h), (9, t.fila_h), (10, t.viagem_expressa_h)]:
+            if pd.notna(v):
+                ws.write_number(lin, j, v, h2)
+        ws.write_blank(lin, 11, None, entrada)
+        ws.write_blank(lin, 12, None, entrada)
+        hoje, exp, nova, virar, sim = (celula(lin, j) for j in (8, 10, 11, 12, 13))
+        ws.write_formula(lin, 13, f'=IF({nova}<>"",{nova},IF(AND({virar}=1,{exp}<>""),{exp},{hoje}))', h2,
+                         t.viagem_h if pd.notna(t.viagem_h) else 0)
+        for j, peso in [(14, celula(lin, 6)), (15, celula(lin, 7))]:
+            ws.write_formula(lin, j, f"=({sim}-{hoje})*{peso}", h2, 0)
+    if len(rotas):
+        ws.add_table(lr, 0, ur, len(cab_r) - 1, {"columns": [{"header": h, "header_format": cab} for h in cab_r],
+                                                 "style": "Table Style Light 1", "name": "TabelaRotas"})
+        ws.data_validation(pr, 11, ur, 11, {"validate": "decimal", "criteria": ">=", "value": 0,
+                                            "error_message": "Digite a viagem em horas (0 ou mais)."})
+        ws.data_validation(pr, 12, ur, 12, {"validate": "integer", "criteria": "between", "minimum": 0,
+                                            "maximum": 1, "error_message": "Use 1 (virar expressa) ou deixe vazio."})
+    ws.set_row(lf, 45)
+    ws.set_row(lr, 45)
+    ws.set_column(0, 0, 40)
+    ws.set_column(1, 1, 34)
+    ws.set_column(2, 15, 13)
+    ws.set_column(4, 4, 24)
+
+
 def gerar_excel(resultados, arquivo):
     """Excel leve, só com resumos; o detalhe por caminho (centenas de milhares de linhas) vai num CSV ao lado."""
     caminhos = resultados["bwt_caminhos"]
@@ -193,6 +303,8 @@ def gerar_excel(resultados, arquivo):
             abas[nome] = resultados[chave]
     if "simulador_resumo" in resultados:
         abas["Simulador de iniciativas"] = None   # escrita à parte, com fórmulas
+    if "simulador_malha_rotas" in resultados:
+        abas["Simulador de malha"] = None         # escrita à parte, com fórmulas
     if "meta_x_realizado" in resultados:
         abas["Meta x Realizado"] = resultados["meta_x_realizado"]
     abas.update({
@@ -237,7 +349,8 @@ def gerar_excel(resultados, arquivo):
 
         for nome, df in abas.items():
             if df is None:
-                _escrever_simulador(livro, resultados, titulo, negrito, cab)
+                escrever = _escrever_simulador if nome == "Simulador de iniciativas" else _escrever_simulador_malha
+                escrever(livro, resultados, titulo, negrito, cab)
                 continue
             df.to_excel(xl, sheet_name=nome, index=False)
             ws = xl.sheets[nome]
