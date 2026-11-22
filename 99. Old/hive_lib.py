@@ -13,7 +13,7 @@ from dataservice.sdk import Client
 
 # Garante o carregamento do .env a partir do diretório raiz onde este arquivo está
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(BASE_DIR, '.env'))
+load_dotenv(os.path.join(BASE_DIR, '..', '.env'))  # .env fica na raiz do repo
 
 def get_df_demand(query):
     hadoop_account = os.environ.get('HADOOP_USER_NAME')

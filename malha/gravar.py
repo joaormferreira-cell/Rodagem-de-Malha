@@ -84,7 +84,7 @@ def gravar(resultados, confirmar=False):
         raise FileNotFoundError(f"Sem a chave de acesso do Google: {CREDENCIAL}")
 
     import sys
-    sys.path.insert(0, str(RAIZ))
+    sys.path.insert(0, str(RAIZ / "99. Old"))   # connection_with_path fica no software antigo
     from connection_with_path import GmailEntry
     conn = GmailEntry(None, None, None, str(CREDENCIAL))
 

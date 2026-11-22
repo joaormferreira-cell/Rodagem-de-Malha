@@ -214,7 +214,7 @@ def fila_no_destino(rotas, arrived_received, periodo, p):
     """Fila para descarregar no SOC de destino (média dos SOCs se faltar); 2h fora de SOC; zero onde não há fila."""
     mes = periodo[:8] + "01"
     # [PARIDADE] o processo atual converte as colunas da 4ª em diante em número e descarta o SOC
-    # que tenha QUALQUER mês vazio (até mês antigo): esse SOC passa a usar a média. Ver MAPA.md.
+    # que tenha QUALQUER mês vazio (até mês antigo): esse SOC passa a usar a média. Ver 99. Old/MAPA.md.
     tabela = arrived_received.copy()
     tabela[tabela.columns[3:]] = tabela[tabela.columns[3:]].apply(pd.to_numeric, errors="coerce")
     tabela = tabela.dropna()

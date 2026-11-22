@@ -13,12 +13,11 @@ A ferramenta pega **os caminhos que os pacotes fazem** (ex.: FMH → SOC São Pa
 | `saida/` | O resultado: `Rodagem de Malha AAAA-MM-DD.xlsx` + arquivos de apoio (são refeitos a cada rodada). |
 | `consultas/` | As 2 consultas do Data Studio da rotina semanal. |
 | `malha/` | **A ferramenta nova** (Rodagem 2.0): o cálculo, as checagens e o Excel. |
-| `network_input_to_bwt_generation.py`, `outobund_by_soc_tt_by_routes.py`, `outobund_by_soc_tt_by_routes_manual_express.py`, `bwt_calculator.py` | **O software antigo** (do Jards), passos 1 a 4. Ainda é o oficial; gravam no Sheets/Hive. |
-| `connection_with_path.py`, `hive_lib.py`, `transit_time_lib.py`, `manual_express_lib.py`, `station_geo_lib.py` | Peças usadas pelo software antigo. |
+| `99. Old/` | **O software antigo** (do Jards), ainda o oficial: os 4 scripts dos passos 1 a 4 (`network_input_to_bwt_generation.py`, `outobund_by_soc_tt_by_routes.py`, `outobund_by_soc_tt_by_routes_manual_express.py`, `bwt_calculator.py`), as peças que eles usam e o `MAPA.md` (mapa técnico). Gravam no Sheets/Hive. Para rodar: `python "99. Old/bwt_calculator.py"` (da pasta do projeto). |
 | `apps_script/` | Botão **Rodagem → Atualizar resultado** da planilha de saída (ver `COMO_INSTALAR.md`). |
 | `teste_local/` | `preparar_dados_reais.py` (o RODAR.bat usa), dados de exemplo e o simulador que roda o software antigo sem internet para comparar. |
 | `tests/` | Testes automáticos. |
-| `COMO_FUNCIONA.md` (este), `MAPA.md`, `CLAUDE.md` | Guia simples · mapa técnico do software antigo · instruções para o Claude. |
+| `COMO_FUNCIONA.md` (este), `CLAUDE.md` | Guia simples · instruções para o Claude. |
 | `__pycache__/`, `.pytest_cache/` | O Python cria sozinho. Pode ignorar. |
 
 ## Como rodar

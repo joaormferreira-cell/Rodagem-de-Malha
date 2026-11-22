@@ -20,6 +20,7 @@ import pandas as pd
 
 PASTA_TESTE = Path(__file__).resolve().parent
 PASTA_REPO = PASTA_TESTE.parent
+PASTA_ANTIGO = PASTA_REPO / "99. Old"   # software antigo (scripts originais)
 
 # planilha (ID do Google) -> pasta com os CSV das abas
 PASTAS_PLANILHAS = {
@@ -152,7 +153,7 @@ class Simulador:
         self.hive = []           # uploads para o Hive na etapa atual
         self.etapa = ""
 
-        sys.path.insert(0, str(PASTA_REPO))
+        sys.path.insert(0, str(PASTA_ANTIGO))
         import connection_with_path as cwp_real
         self.cwp_real = cwp_real
 
@@ -304,7 +305,7 @@ class Simulador:
         sys.modules["connection_with_path"] = falso_cwp
         sys.modules["hive_lib"] = falso_hive
 
-        caminho = PASTA_REPO / nome_arquivo
+        caminho = PASTA_ANTIGO / nome_arquivo
         codigo = caminho.read_text(encoding="utf-8")
         for padrao, troca, motivo in ajustes_codigo:
             codigo, n = re.subn(padrao, troca, codigo)

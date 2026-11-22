@@ -10,10 +10,11 @@ Scripts Python que pegam a demanda da malha (paths E2E + ADO), calculam distânc
 └── Rodagem-de-Malha/           # este repositório
     ├── .env                    # APP_KEY, APP_SECRET (carregado pelo hive_lib.py). Nunca commitar.
     ├── CLAUDE.md
-    └── *.py
+    ├── malha/                  # ferramenta nova (Rodagem 2.0): RODAR.bat / python -m malha rodar
+    └── 99. Old/                # software antigo: os 4 scripts abaixo + libs + MAPA.md
 ```
 
-- Rodar da raiz do repo: `python <script>.py`.
+- Software antigo: rodar da raiz do repo: `python "99. Old/<script>.py"`. Os nomes de arquivo citados neste guia ficam em `99. Old/`.
 - Os scripts executam direto ao rodar (não têm `main()`), exceto `outobund_by_soc_tt_by_routes_manual_express.py`.
 - Precisa da intranet Shopee (Data Service usa `Env.INTRANET`) e do SDK interno `dataservice`.
 - Libs: pandas, numpy, google-api-python-client, google-auth-oauthlib, python-dotenv, requests, requests-toolbelt, pyhive.
