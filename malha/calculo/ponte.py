@@ -1,8 +1,8 @@
 """
-Ponte do BWT: de onde vem cada hora entre o REAL e a META do mês da meta (Brasil, BR - BR).
+Aba "Real x Meta - por etapa" (ponte): de onde vem cada hora entre o REAL e a META do mês da meta (Brasil, BR - BR).
 Duas comparações: o real do mês em andamento (parcial, se a By Step já tiver o mês) e o do último mês fechado.
 
-Aba "Ponte do BWT", por etapa da By Step:
+Por etapa da By Step:
   peso da etapa no BWT = horas da etapa × % dos pedidos que passam por ela   (= horas × pedidos ÷ pedidos do canal)
   a reduzir = peso no real − peso na meta   (> 0: o real está acima da meta nessa etapa)
   Separado em duas partes que somam o "a reduzir":
@@ -10,7 +10,7 @@ Aba "Ponte do BWT", por etapa da By Step:
     por pedidos = horas meta × (% pedidos real − % pedidos meta)  → passam mais (ou menos) pedidos por ela
   As etapas da By Step sem meta (volta, avião, Pickup Point...) entram somadas numa linha só.
 
-Aba "Onde atacar": rotas (tempo de estrada) e SOCs (fila de recebimento) da aba Rotas meta x real.
+Aba "Real x Meta - top rotas e SOCs": rotas (tempo de estrada) e SOCs (fila de recebimento) da aba "Real x Meta - rotas".
   efeito no BWT Brasil = horas acima da meta × pacotes do mês ÷ pedidos do mês (By Step, SPX D2D + Fulfillment).
   É aproximado: a consulta por rota conta todos os pacotes que passaram na rota.
   Não cobre o tempo DENTRO dos SOCs (recebido → embalado → saída): não há realizado por SOC.
@@ -28,7 +28,7 @@ RELEVANTE = 0.3   # horas no BWT: abaixo disso (para mais ou para menos) a etapa
 TOP = 20
 SEM_META = "Etapas da By Step sem meta (volta, avião, Pickup Point, Mobile HUB...)"
 _NOTA_XD = ("Meta em horas recalculada contando também os SOCs cross-dock (meta 0h), como a By Step conta. "
-            "Por isso difere da aba Meta By Step; o peso no BWT é o mesmo.")
+            "Por isso difere da aba By Step por canal; o peso no BWT é o mesmo.")
 _NOTAS = {
     KPI["M05+M06"]: ("A meta ([T] 3.1, cerca de 16h) parece cobrir só pago → recebido no FBS (M05). "
                      "Recebido → saída (M06, cerca de 12h no real) fica sem meta. Confirmar com o dono da [T] 3.1 "
@@ -123,8 +123,9 @@ def _ponte(meta, real, mes_meta, mes_real, m, r, comparacao):
 
         def linha(etapa, real_h, meta_h, share_r, share_m, reduzir, tempo, pedidos, leitura, obs=""):
             return {"comparação": comparacao, "canal": canal, "etapa (KPI By Step)": etapa, col_real: real_h,
-                    col_meta: meta_h, "% pedidos real": share_r, "% pedidos meta": share_m, "a reduzir no BWT (h)": reduzir,
-                    "por tempo (h)": tempo, "por nº de pedidos (h)": pedidos, "leitura": leitura, "observação": obs}
+                    col_meta: meta_h, "% pedidos real": share_r, "% pedidos meta": share_m, "horas a mais no BWT (h)": reduzir,
+                    "porque demorou mais (h)": tempo, "porque passaram mais pedidos (h)": pedidos,
+                    "leitura": leitura, "observação": obs}
 
         dif = total_real - total_meta
         linhas.append(linha("BWT total", total_real, total_meta, np.nan, np.nan, dif, np.nan, np.nan,
@@ -137,7 +138,7 @@ def _ponte(meta, real, mes_meta, mes_real, m, r, comparacao):
         fora = t[~com_meta]
         if len(fora):
             linhas.append(linha(SEM_META, np.nan, np.nan, np.nan, np.nan, fora["reduzir"].sum(), np.nan, np.nan,
-                                "Sem meta: tempo que a malha não prevê. Lista na aba Meta By Step."))
+                                "Sem meta: tempo que a malha não prevê. Lista na aba By Step por canal."))
         resto = dif - t["reduzir"].sum()
         if abs(resto) >= 0.05:
             linhas.append(linha("Resto (pedidos que não fecham por etapa)", np.nan, np.nan, np.nan, np.nan, resto,
@@ -179,7 +180,9 @@ def onde_atacar(rotas_x_real, realizado_bruto, top=TOP):
     a = pd.concat([estrada, fila], ignore_index=True)
     a["acima"] = a["real"] - a["meta"]
     a["efeito"] = a["acima"] * a["pacotes"] / pedidos
+    a["pedidos"] = pedidos   # divisor do efeito: pedidos/dia do Brasil no mês (By Step realizado)
     a = a[a["efeito"] > 0].sort_values("efeito", ascending=False).head(top)
     a.insert(0, "posição", range(1, len(a) + 1))
-    return a.rename(columns={"pacotes": f"pacotes em {rotulo}", "meta": "meta (h)", "real": f"real {rotulo} (h)",
-                             "acima": "acima da meta (h)", "efeito": "efeito no BWT Brasil (h)"}).reset_index(drop=True)
+    return a.rename(columns={"pacotes": f"pacotes em {rotulo}", "meta": "meta da Rodagem (h)", "real": f"real {rotulo} (h)",
+                             "acima": "acima da meta (h)", "efeito": "efeito no BWT Brasil (h)",
+                             "pedidos": f"pedidos Brasil em {rotulo} (By Step)"}).reset_index(drop=True)

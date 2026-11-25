@@ -102,6 +102,22 @@ def test_checagens():
     assert linha["nivel"] == "ERRO" and linha["qtd"] > 0
 
 
+def test_meta_zero_em_estacao_usada():
+    from malha.checagens import _metas_zero
+    bwt = pd.DataFrame({"period_start": ["2026-11-01", "2026-11-01", "2026-10-01"],
+                        "ORIGIN": ["FMH-A", "FMH-B", "FMH-A"], "FMH": ["FMH-A", "FMH-B", "FMH-A"],
+                        "SOC1": ["SOC-X(XD)", "SOC-Y", "SOC-X"], "SOC2": ["", "SOC-X", ""],
+                        "LMH": ["HUB-1", "HUB-1", "HUB-1"], "ADO": [100.0, 50.0, 70.0]})
+    metas = {"meta_4_2": pd.DataFrame({"code": ["SOC-X", "SOC-Y", "SOC-Z"], "2026-10-01": ["9.6", "10", "0"],
+                                       "2026-11-01": ["0.0", "10", "0"]}),     # SOC-Z tem zero mas ninguém passa
+             "meta_3_0_2": pd.DataFrame({"period_start": ["2026-11-01"], "code": ["FMH-B"],
+                                         "Target Received to Transporting": ["0"]})}
+    achados = _metas_zero(metas, bwt)
+    # SOC-X em nov: 150 pedidos/dia (com e sem XD); FMH-B em nov: 50; SOC-Z não aparece (fora da demanda)
+    assert achados == ["SOC-X · [T] 4.2 SOC Packed to LH Transporting · Nov/26 · 150 pedidos/dia",
+                       "FMH-B · [T] 3.0.2 FMH Packed to Transporting · Nov/26 · 50 pedidos/dia"]
+
+
 def test_gravacao_substitui_mes_sem_duplicar():
     from malha.calculo.bwt import COLUNAS_1O_SOC, COLUNAS_RESUMO, COLUNAS_SAIDA
     from malha.gravar import plano_de_gravacao
@@ -176,15 +192,22 @@ def test_metas_padronizadas_nao_perdem_nada():
 
 def test_meta_by_step_tem_todas_as_linhas_da_by_step():
     from malha.calculo.by_step import ETAPAS_BY_STEP, KPI, TOTAL
-    from malha.relatorio import _by_step_brasil
+    from malha.excel_by_step import tabela_raw_meta
+    from malha.excel_tabelas import tabela_meta_by_step
     meta = pd.DataFrame({"attempt_month": "2026-11-01", "spx_channel": "SPX D2D", "main_route": "BR - BR",
-                         "kpi": [KPI["M01"], KPI["M24"], TOTAL], "media_h": [28.0, 8.0, 110.0]})
-    t = _by_step_brasil(meta).set_index("etapa (KPI By Step)")
+                         "kpi": [KPI["M01"], KPI["M24"], TOTAL], "bwt_n": [2800.0, 800.0, 11000.0],
+                         "bwt_d": [100.0, 100.0, 100.0]})
+    tab = tabela_meta_by_step(meta, tabela_raw_meta(meta))
+    t = tab.df[tab.df["canal"] == "SPX D2D"].set_index("kpi")
     assert set(ETAPAS_BY_STEP) <= set(t.index) and t.index[-1] == TOTAL
     assert t.index.get_loc(KPI["M01"]) < t.index.get_loc("M02 Seller: Paid to Label")
-    assert t.loc[KPI["M24"], "observação"] == ""                          # tem meta: sem nota
-    assert "M01" in t.loc["M03 Seller: Label to Dropoff", "observação"]   # meta junta: aponta para o M01
-    assert t.loc["M44 LH LMH-SOC", "observação"].startswith("Sem meta")
+    assert t.loc[KPI["M24"], "m0"] == 8.0 and t.loc[KPI["M24"], "obs"] == ""   # tem meta: sem nota
+    assert "M01" in t.loc["M03 Seller: Label to Dropoff", "obs"]             # meta junta: aponta para o M01
+    assert t.loc["M44 LH LMH-SOC", "obs"].startswith("Sem meta")
+    # média = SUMIFS na base verde ÷ SUMIFS, com o recorte vindo da aba Premissas
+    i = list(tab.df["kpi"]).index(KPI["M24"])
+    formula = tab.celulas[(i, "m0")][1]
+    assert formula.startswith("=IFERROR(SUMIFS('raw_meta_by_step'!") and "'Premissas'!$C$" in formula
 
 
 def test_ponte_do_bwt():
@@ -200,17 +223,17 @@ def test_ponte_do_bwt():
     real = base("2026-10-01", [(TOTAL, 36, 100), (KPI["M24"], 12, 100), (KPI["M26"], 20, 100),
                                ("M44 LH LMH-SOC", 40, 10)])
     p = ponte_etapas(meta, real).set_index("etapa (KPI By Step)")
-    assert abs(p.loc["BWT total", "a reduzir no BWT (h)"] - 6) < 1e-9
-    assert abs(p.loc[KPI["M24"], "a reduzir no BWT (h)"] - 2) < 1e-9 and abs(p.loc[KPI["M26"], "a reduzir no BWT (h)"]) < 1e-9
-    assert abs(p.iloc[1:]["a reduzir no BWT (h)"].sum() - 6) < 1e-9   # a etapa sem meta (M44) completa a ponte
+    assert abs(p.loc["BWT total", "horas a mais no BWT (h)"] - 6) < 1e-9
+    assert abs(p.loc[KPI["M24"], "horas a mais no BWT (h)"] - 2) < 1e-9 and abs(p.loc[KPI["M26"], "horas a mais no BWT (h)"]) < 1e-9
+    assert abs(p.iloc[1:]["horas a mais no BWT (h)"].sum() - 6) < 1e-9   # a etapa sem meta (M44) completa a ponte
     e = p.loc[KPI["M24"]]
-    assert abs(e["por tempo (h)"] + e["por nº de pedidos (h)"] - e["a reduzir no BWT (h)"]) < 1e-9
+    assert abs(e["porque demorou mais (h)"] + e["porque passaram mais pedidos (h)"] - e["horas a mais no BWT (h)"]) < 1e-9
     assert p["comparação"].unique().tolist() == ["Real Out/26 (último mês fechado) × Meta Nov/26"]
 
     # com o mês da meta já no realizado (parcial): a comparação do mês em andamento vem primeiro, com o último dia
     nov = base("2026-11-01", [(TOTAL, 31, 50), (KPI["M24"], 11, 50), (KPI["M26"], 20, 50)])
     p2 = ponte_etapas(meta, pd.concat([nov, real]), {"2026-11-01": "2026-11-18"})
-    total = p2[p2["etapa (KPI By Step)"] == "BWT total"].set_index("comparação")["a reduzir no BWT (h)"]
+    total = p2[p2["etapa (KPI By Step)"] == "BWT total"].set_index("comparação")["horas a mais no BWT (h)"]
     assert list(total.index) == ["Real Nov/26 até 18/11 (mês em andamento) × Meta Nov/26",
                                  "Real Out/26 (último mês fechado) × Meta Nov/26"]
     assert abs(total.iloc[0] - 1) < 1e-9 and abs(total.iloc[1] - 6) < 1e-9
@@ -231,11 +254,9 @@ def test_ponte_do_bwt():
     assert "SOC-A>HUB-B-X" not in a.index
 
 
-def test_simulador_de_iniciativas():
-    """Ponte real → meta fecha; todas ligadas = soma das etapas da meta; desligar devolve o impacto × % de pedidos."""
-    from malha.calculo.simulador import bwt_simulado, ler_simulador
+def _grade_initiatives():
     soc1 = "SOC1 Received to SoC Packed (With Transshipment)"
-    grade = pd.DataFrame([
+    return pd.DataFrame([
         ["", "", "", "", "Share", "LT", "Share", "LT", "Share", "LT", "", ""],
         ["", "", "", "", "Actuals", "Actuals", "Target", "Target", "Target", "Target", "", ""],
         ["", "Key", "Leg", "Status", "Oct/26", "Oct/26", "Nov/26", "Nov/26", "Nov/27", "Nov/27", "Owner", "Saving rationale"],
@@ -248,7 +269,12 @@ def test_simulador_de_iniciativas():
         ["", "", "1st SOC", soc1, "50%", "8.00", "50%", "8.00", "60%", "7.00", "", ""],
         ["", "", "SOC", "Iniciativa B", "-", "-", "-", "-0.50", "-", "-0.50", "", ""],
     ])
-    s = ler_simulador(grade)
+
+
+def test_simulador_de_iniciativas():
+    """Ponte real → meta fecha; todas ligadas = soma das etapas da meta; desligar devolve o impacto × % de pedidos."""
+    from malha.calculo.simulador import bwt_simulado, ler_simulador
+    s = ler_simulador(_grade_initiatives())
     r, ini = s["resumo"], s["iniciativas"].set_index("iniciativa")
     assert list(ini.index) == ["Feriados (Impactos de feriados)", "Iniciativa A", "Iniciativa B"]   # sem a linha zerada
     assert r["total_b_h"] == 0.90 * 24 and r["soma_real_h"] == 20 + 0.5 * 8
@@ -332,3 +358,42 @@ def test_calibracao():
     assert c.loc[("Viagem: de onde vem o tempo", "New TT"), "leitura"] == "A regra acerta: real perto da meta."
     f = c.loc[("Fila no SOC de destino: de onde vem a fila", "Fila do próprio SOC")]
     assert f["real (h)"] == (6 * 100 + 4 * 300) / 400 and "Sem fila (regra)" not in c.loc["Fila no SOC de destino: de onde vem a fila"].index
+
+
+def test_simuladores_no_padrao_do_excel(tmp_path):
+    """As duas abas de simulador: topo padrão, linha na aba Check, checks com fórmula, conta em fórmula, sem cor."""
+    import openpyxl
+    from malha.calculo.simulador import ler_simulador
+    from malha.calculo.simulador_malha import simular_malha
+    from malha.pipeline import ler_inputs
+    from malha.relatorio import gerar_excel
+    entradas = ler_inputs(RAIZ / "teste_local" / "dados_exemplo")
+    with redirect_stdout(io.StringIO()):
+        res = calcular(entradas)
+    res.update(simular_malha(res, entradas["metas"]))
+    s = ler_simulador(_grade_initiatives())
+    res.update({"simulador_resumo": pd.DataFrame([s["resumo"]]), "simulador_etapas": s["etapas"],
+                "simulador_iniciativas": s["iniciativas"]})
+    arquivo = gerar_excel(res, tmp_path / "saida.xlsx")
+    wf, wv = openpyxl.load_workbook(arquivo), openpyxl.load_workbook(arquivo, data_only=True)
+    check = [wf["Check"].cell(row=r, column=2).value for r in range(3, 40)]
+    from malha.excel_padrao import ABA
+    for nome in [ABA["sim_ini"], ABA["sim_malha"]]:
+        ws, wsv = wf[nome], wv[nome]
+        assert nome in check
+        assert ws["A1"].value.startswith("=COUNTIF('Check'!") and ws["A2"].value == "=COUNTIF(B3:C3,FALSE)"
+        assert ws["C3"].value.startswith("=COUNTIF(") and wsv["C3"].value is True     # todos os checks OK
+        for row in ws.iter_rows(min_row=4, max_row=ws.max_row):                      # sem célula amarela, letra preta
+            for c in row:
+                if c.value is None:
+                    continue
+                cor_fundo = c.fill.fgColor.rgb if c.fill and c.fill.fill_type else None
+                assert cor_fundo in (None, "FF434343", "FF38761D", "FFBF9000", "FFF3F3F3"), (nome, c.coordinate)
+                if c.font.color is not None and c.font.color.type == "rgb":
+                    assert c.font.color.rgb in ("FF000000", "FFFFFFFF", "FFB7B7B7"), (nome, c.coordinate)
+    ini, mal = wf[ABA["sim_ini"]], wf[ABA["sim_malha"]]
+    assert ini["C5"].value.startswith("=SUMPRODUCT(") and ini["C9"].value.startswith("=SUM(")   # ponte em fórmula
+    assert mal["C5"].value.startswith(f"='{ABA['bs_canal']}'!")                                     # meta de hoje
+    assert abs(wv[ABA["sim_ini"]]["C9"].value - s["resumo"]["soma_b_h"]) < 1e-9
+    formulas = [c.value for row in ini.iter_rows() for c in row if isinstance(c.value, str) and c.value.startswith("=")]
+    assert any("'Premissas'!" in v for v in formulas)                                         # 1/0 da Premissas

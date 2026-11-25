@@ -7,7 +7,7 @@ Mesma regra do By Step: começa quando o pacote SAI de A; termina quando é RECE
 ou quando CHEGA no HUB/XPT. "estrada" = saiu de A → chegou em B; "fila" = chegou em B → recebido.
 As colunas estrada/fila são opcionais (versões antigas da consulta não trazem).
 
-Meta = aba Rotas: viagem (TT with Express) + fila no destino (TT Queue and Unloading) = TTFinal.
+Meta = aba "Rotas - Meta": viagem (TT with Express) + fila no destino (TT Queue and Unloading) = TTFinal.
 O mesmo código de estação às vezes vem com sufixo ([DC], _fix, -X, -EX): é tirado dos dois lados antes de juntar.
 """
 import numpy as np

@@ -24,7 +24,12 @@ A ferramenta pega **os caminhos que os pacotes fazem** (ex.: FMH → SOC São Pa
 **Jeito simples:** dois cliques em `RODAR.bat` (prepara os dados de `dados_reais`, calcula, confere e abre o Excel).
 
 **O que sai (pasta `saida`):**
-- `Rodagem de Malha AAAA-MM-DD.xlsx`: Leia-me, Resumo, Rodagem x Initiatives x Real (se houver `dados_reais/initiatives.csv`: aba Nov26-27 da Initiatives), Ponte do BWT (se houver o realizado da By Step; mês em andamento e último mês fechado), Onde atacar (se houver o realizado da By Step e o real por rota), Regra x Real (se houver o real por rota: a meta erra sempre para o mesmo lado em algum tipo de rota ou regra? Só compara, não muda a meta), Simulador de iniciativas (se houver a aba Nov26-27; com fórmulas: ligar e desligar cada iniciativa), Simulador de malha (com fórmulas: mudar a fila de um SOC, a viagem de uma rota ou virar a rota expressa e ver a meta de BWT mudar), Meta x Realizado (se houver o realizado da By Step), Meta By Step, Rotas, Rotas meta x real (se houver o real por rota: `consultas/lh_real_por_rota.sql`), Checagens
+- `Rodagem de Malha AAAA-MM-DD.xlsx`, no padrão das planilhas de BWT do time (cor na aba, letras pretas, A1/A2 com os checks, linha 3 de checks, tabela a partir de B4, tudo o que é conta em fórmula). As abas, em seções separadas por divisórias:
+  - **Comece aqui:** Leia-me (resultado do mês, índice com link para cada aba e legenda), Check (uma linha por aba; A1 = 0 é tudo certo), Check - Rodagem (conferências dos inputs e resultados), Premissas (tolerância, recortes e limites usados nas fórmulas).
+  - **META >>:** Resumo BWT (por mês, canal e região), By Step BR e By Step SPM (cada etapa da By Step, SPX D2D + FF D2D: Avg time step, % Share e BWT), By Step por canal, By Step antigo BR/SPM (mesma meta no formato do output antigo).
+  - **REAL x META >>** (se houver o realizado): Meta x Initiatives x Real (se houver `dados_reais/initiatives.csv`), Real x Meta - por etapa (mês em andamento e último mês fechado), Real x Meta - top rotas e SOCs, Real x Meta - por regra (a meta erra sempre para o mesmo lado? Só compara), Real x Meta - rotas (`consultas/lh_real_por_rota.sql`), Real x Meta - detalhe.
+  - **SIMULADORES >>:** Simulador - Iniciativas (ligar e desligar cada iniciativa) e Simulador - Malha (mudar a fila de um SOC, a viagem de uma rota ou virar a rota expressa).
+  - **BASES >>:** Rotas - Meta e as bases raw_meta_by_step e raw_steps_antigos (números que vêm prontos da rodagem).
 - `BWT por caminho - todos os meses.csv`: o detalhe de cada caminho
 - `planilha\*.csv`: para o botão **Rodagem → Atualizar resultado** da planilha de saída (ver `apps_script/COMO_INSTALAR.md`)
 
@@ -114,4 +119,4 @@ As duas consultas pegam sozinhas **o mês atual até ontem**. Não precisa mudar
 2. Rode `consultas/by_step_realizado.sql` e salve como `dados_reais/by_step_mes_atual.csv`.
 3. Dois cliques no `RODAR.bat`. Ele junta o mês atual no histórico (`lh_real_por_rota.csv` e `by_step_realizado.csv`) e gera o Excel.
 
-No Excel: **Ponte do BWT** (mês em andamento × meta, até o último dia com dado), **Onde atacar** e **Regra x Real**.
+No Excel: **Real x Meta - por etapa** (mês em andamento × meta, até o último dia com dado), **Real x Meta - top rotas e SOCs** e **Real x Meta - por regra**.

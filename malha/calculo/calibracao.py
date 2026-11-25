@@ -1,5 +1,5 @@
 """
-Aba "Regra x Real": a meta da Rodagem erra sempre para o mesmo lado? Real × meta das rotas (aba Rotas meta x real),
+Aba "Real x Meta - por regra": a meta da Rodagem erra sempre para o mesmo lado? Real × meta das rotas (aba "Real x Meta - rotas"),
 agrupado pela regra que deu o tempo (expressa oficial, New TT, fórmula por km...), pelo tipo de rota e pela distância.
 Só compara: não muda nenhum número da meta.
 

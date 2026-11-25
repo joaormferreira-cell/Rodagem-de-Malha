@@ -6,7 +6,7 @@ Ajustes para ficar no mesmo nível da meta (iguais ao export mensal da By Step):
   - M01 APT = M02 + M03 + M04 (pedidos = os do M02);
   - FBS: o M02 dos canais Fulfillment vai para o M05; meta do FBS = M05 + M06;
   - pedidos sem bipe (Z ...) não entram por etapa, só no total.
-KPI que só existe no realizado (Pickup Point, fluxos de volta, Mobile HUB...) aparece como "fora do modelo".
+KPI sem meta (só existe no realizado, como Pickup Point, fluxos de volta, Mobile HUB, ou sem caminho na demanda) aparece como "sem meta".
 """
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ def comparar(meta, realizado_bruto):
     modelados = set(KPI.values()) | {TOTAL}
     t["situacao"] = np.select(
         [~t["kpi"].isin(modelados), t["bwt_d_meta"].isna(), t["bwt_d_real"].isna()],
-        ["fora do modelo (só realizado)", "sem meta neste recorte", "sem realizado neste recorte"], "comparável")
+        ["sem meta", "sem meta", "sem realizado"], "comparável")
     colunas = CHAVE + ["kpi", "situacao", "meta_h", "real_h", "dif_h", "bwt_d_meta", "bwt_d_real",
                        "bwt_n_meta", "bwt_n_real"]
     return t[colunas].sort_values(CHAVE + ["kpi"]).reset_index(drop=True)

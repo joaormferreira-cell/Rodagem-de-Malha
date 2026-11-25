@@ -12,7 +12,9 @@ import re
 import numpy as np
 import pandas as pd
 
+from .calculo.initiatives import _rotulo
 from .calculo.malha import COLUNAS_DISTANCIA
+from .configuracao import fontes
 
 ERRO, AVISO, OK = "ERRO", "AVISO", "OK"
 LIMITE_LAT = (-34.5, 5.5)       # Brasil
@@ -225,4 +227,48 @@ def checar_resultados(r, e, rel=None):
         dif = (kpis.reindex(tot_bs.index) - tot_bs).abs() > 1e-6 * tot_bs.abs().clip(lower=1)
         rel.conferir(f, "by_step", "soma das etapas ≠ BWT total", list(tot_bs.index[dif]), ERRO,
                      "Algum tempo da meta não foi encaixado em KPI.")
+    rel.conferir(f, "metas", "meta zero em estação usada pela demanda", _metas_zero(e.get("metas", {}), bwt), AVISO,
+                 "A meta 0 entra como zero de verdade (só a célula vazia usa a média): os pedidos que passam ali "
+                 "ficam sem esse tempo. Confirmar com o dono da aba se é de propósito; se faltar preencher, "
+                 "corrigir na planilha de metas e rodar de novo.")
     return rel
+
+
+ESTACOES_DO_CAMINHO = ["ORIGIN", "FMH", "SOC1", "SOC2", "SOC3", "SOC4", "LMH", "XPT"]
+
+
+def _metas_zero(metas, bwt):
+    """
+    Estação × aba × mês com meta = 0 por onde a demanda passa, da que tem mais pedidos/dia para a que tem menos.
+    Texto: 'SOC-SP26 · [T] 4.2 SOC Packed to LH Transporting · Nov/26 · 181.713 pedidos/dia'.
+    """
+    cols = [c for c in ESTACOES_DO_CAMINHO if c in bwt.columns]
+    if not cols:
+        return []
+    longa = bwt[cols].assign(mes=bwt["period_start"].astype(str).str[:10], ADO=_num(bwt["ADO"]).fillna(0.0)) \
+                     .melt(id_vars=["mes", "ADO"], value_name="code", ignore_index=False)
+    longa["code"] = longa["code"].fillna("").astype(str).str.replace("(XD)", "", regex=False).str.strip()
+    longa = longa[longa["code"] != ""].reset_index().drop_duplicates(["index", "code"])   # cada caminho conta 1 vez
+    pedidos = longa.groupby(["mes", "code"])["ADO"].sum()
+    meses = sorted(longa["mes"].unique())
+
+    achados = []
+    for nome, m in metas.items():
+        if m.empty or "code" not in m.columns:
+            continue
+        aba = fontes()["planilhas"].get(nome, {}).get("aba", nome)
+        for mes in meses:
+            if "period_start" in m.columns:      # FMH (3.0.1 / 3.0.2): uma linha por mês
+                valor = m[m["period_start"] == mes].drop_duplicates("code") \
+                         .set_index("code").get("Target Received to Transporting")
+            elif mes in m.columns:
+                valor = m.drop_duplicates("code").set_index("code")[mes]
+            else:
+                continue
+            if valor is None:
+                continue
+            for code in valor.index[_num(valor) == 0]:
+                if (mes, code) in pedidos.index:
+                    achados.append((pedidos[(mes, code)], f"{code} · {aba} · {_rotulo(mes)} · "
+                                    + f"{pedidos[(mes, code)]:,.0f} pedidos/dia".replace(",", ".")))
+    return [texto for _, texto in sorted(achados, reverse=True)]

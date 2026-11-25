@@ -38,7 +38,7 @@ KPI = {
 }
 TOTAL = "FLOW BWT TOT"
 
-# Todas as linhas da By Step (base joao_bwt_by_step_mece), para a aba "Meta By Step" bater linha a linha com ela.
+# Todas as linhas da By Step (base joao_bwt_by_step_mece), para a aba "By Step por canal" bater linha a linha com ela.
 ETAPAS_BY_STEP = [
     "M02 Seller: Paid to Label", "M03 Seller: Label to Dropoff", "M04 Seller: Label to Pickup",
     "M05 FBS: Paid to Received", "M06 FBS: Received to Departure", "M07 FM: Dropoff to Pickup",
@@ -83,7 +83,7 @@ _JUNTA = {KPI["M01"]: "Junta M02 + M03 + M04 da By Step (a aba [T] 1.0 tem um n�
 
 
 def observacao(kpi, tem_meta):
-    """Texto da coluna 'observação' da aba Meta By Step."""
+    """Texto da coluna 'Observação' das abas By Step."""
     if kpi in _JUNTA:
         return _JUNTA[kpi]
     if tem_meta or kpi == TOTAL:
@@ -313,3 +313,80 @@ def meta_by_step(caminhos, spx_info):
     saida = saida.rename(columns={"period_start": "attempt_month", "canal": "spx_channel"})
     saida["media_h"] = saida["bwt_n"] / saida["bwt_d"]
     return saida.sort_values(["attempt_month", "spx_channel", "main_route", "kpi"]).reset_index(drop=True)
+
+
+def dados_bwt_por_etapa(meta, rota="BR - BR", canais=tuple(CANAIS.values())):
+    """
+    Inputs das abas "By Step BR/SPM", por etapa da By Step × mês, no recorte SPX D2D + FF D2D (CB já fica fora):
+      pedidos/dia que passam pela etapa (bwt_d)  e  horas × pedidos/dia (bwt_n).
+    Totais do recorte = linha FLOW BWT TOT (direto dos caminhos, sem somar etapas).
+    Avg time step = horas ÷ pedidos da etapa; % Share = pedidos da etapa ÷ pedidos do recorte;
+    BWT = horas ÷ pedidos do recorte (a soma das etapas dá o BWT total). Essas três contas são fórmulas no Excel.
+    """
+    m = meta[(meta["main_route"] == rota) & meta["spx_channel"].isin(canais)]
+    g = m.assign(bwt_n=pd.to_numeric(m["bwt_n"], errors="coerce"), bwt_d=pd.to_numeric(m["bwt_d"], errors="coerce"))          .groupby(["kpi", "attempt_month"])[["bwt_n", "bwt_d"]].sum()
+    pedidos, horas = g["bwt_d"].unstack(), g["bwt_n"].unstack()
+    meses = sorted(pedidos.columns)
+    vazio = pd.Series(0.0, index=meses)
+    total_p = pedidos.loc[TOTAL] if TOTAL in pedidos.index else vazio
+    total_h = horas.loc[TOTAL] if TOTAL in horas.index else vazio
+    return {"meses": meses, "pedidos": pedidos.drop(index=TOTAL, errors="ignore").reindex(columns=meses),
+            "horas": horas.drop(index=TOTAL, errors="ignore").reindex(columns=meses),
+            "total_pedidos": total_p.reindex(meses), "total_horas": total_h.reindex(meses)}
+
+
+# Leg e Type de cada etapa (como na tabela da rodagem antiga), por faixa de código: (até o código, Leg, Type).
+_LEG_TIPO = [(4, "Seller", "processing"), (6, "FBS", "processing"), (7, "FM", "processing"),
+             (12, "FM", "traveling"), (17, "LH FBS", "traveling"), (19, "FMH", "processing"),
+             (23, "LH FMH", "traveling"), (25, "1st SOC", "processing"), (26, "LH SOC1>SOC2", "traveling"),
+             (28, "2nd SOC", "processing"), (29, "LH SOC2+>SOC", "traveling"), (31, "3rd SOC+", "processing"),
+             (35, "LH SOC", "traveling"), (36, "Airport", "processing"), (37, "Airport", "traveling"),
+             (40, "LH Airport", "traveling"), (42, "LMH", "processing"), (46, "LH LMH", "traveling"),
+             (47, "Mobile HUB", "traveling"), (49, "XPT", "processing"), (53, "LH XPT", "traveling"),
+             (60, "Pickup Point", "traveling"), (69, "Fleet", "traveling"), (72, "Pickup Point", "processing")]
+_LEG_TIPO_M99 = {"M99 LH FMH-Airport": ("LH FMH", "traveling"), "M99 LH LMH-Airport": ("LH LMH", "traveling"),
+                 "M99 Airport Delivering to 1st": ("Fleet", "traveling")}
+
+
+def leg_tipo(kpi):
+    """(Leg, Type) da etapa; vazio para o total e as linhas de controle (Z ...)."""
+    if kpi in _LEG_TIPO_M99:
+        return _LEG_TIPO_M99[kpi]
+    if not kpi.startswith("M") or not kpi[1:3].isdigit():
+        return "", ""
+    n = int(kpi[1:3])
+    return next(((leg, tipo) for ate, leg, tipo in _LEG_TIPO if n <= ate), ("", ""))
+
+
+# Checks de estação em pedidos/dia: quem entra numa etapa tem de sair dela (como as linhas Check da By Step).
+# (etapa de referência para o grupo, regra, etapas do lado esquerdo, do lado direito; None = pedidos/dia do recorte)
+CHECAGENS_ESTACAO = [
+    ("M01", "APT + FBS = 100% dos pedidos", ["M01", "M05+M06"], None),
+    ("M05+M06", "FBS = LH saindo do FBS (para SOC ou LMH)", ["M05+M06"], ["M13", "M15", "M17"]),
+    ("M07", "Dropoff→Pickup = APT", ["M07"], ["M01"]),
+    ("M09", "Pickup→SOC + Pickup→FMH + Pickup→LMH = Dropoff→Pickup", ["M09", "M10", "M11"], ["M07"]),
+    ("M18", "FMH recebido = Pickup→FMH", ["M18"], ["M10"]),
+    ("M19", "FMH saída = FMH recebido", ["M19"], ["M18"]),
+    ("M20", "LH saindo do FMH = FMH saída", ["M20", "M21", "M99a"], ["M19"]),
+    ("M25", "SOC1 saída = chegada no SOC1 (Pickup→SOC + LH FMH-SOC + LH FBS-SOC)", ["M25"], ["M09", "M20", "M13"]),
+    ("M28", "SOC2 saída = LH1 (chegada no SOC2)", ["M28"], ["M26"]),
+    ("M31", "SOC3+ saída = LH2 (chegada no SOC3+)", ["M31"], ["M29"]),
+    ("M32", "Saída dos SOCs = LH entre SOCs + LH SOC-LMH + LH SOC-XPT", ["M25", "M28", "M31"],
+     ["M26", "M29", "M32", "M33"]),
+    ("M41", "LMH recebido = LH chegando no LMH (do SOC, FMH, FBS ou direto do Pickup)", ["M41"],
+     ["M11", "M15", "M21", "M32", "M39"]),
+    ("M42", "LMH saída = LMH recebido", ["M42"], ["M41"]),
+    ("M43", "LMH saída = LH LMH-XPT + entrega do LMH", ["M42"], ["M43", "M62"]),
+    ("M48", "XPT recebido = LH chegando no XPT", ["M48"], ["M33", "M43", "M40"]),
+    ("M49", "XPT saída = XPT recebido", ["M49"], ["M48"]),
+    ("M63", "Entrega do XPT = XPT saída", ["M63"], ["M49"]),
+    ("M62", "Entrega do LMH + entrega do XPT = 100% dos pedidos", ["M62", "M63"], None),
+]
+SEM_CHECAGEM_SOC = ("SOC recebido→embalado (M24, M27, M30): sem check de entrada/saída, porque o transbordo (XD) "
+                    "passa sem ser processado e fica de fora dessas linhas.")
+TOLERANCIA_CHECK = 1e-6   # relativa: |a − b| ≤ tolerância × MAX(1, |a|, |b|)
+
+
+def confere(a, b, tol=TOLERANCIA_CHECK):
+    """Mesma conta das células de check do Excel."""
+    return abs(a - b) <= tol * max(1.0, abs(a), abs(b))
